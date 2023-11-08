@@ -1,19 +1,23 @@
 # dbt2looker
+Use `dbt2looker-bigquery` to generate Looker view files automatically from dbt models in Bigquery.
 
-Use `dbt2looker` to generate Looker view files automatically from dbt models.
+This is a fork of dbt2looker that is specific to bigquery.
+The intention is to allow one to define most of the simple and tedious lookml settings in dbt.
+That way the lookml code gets less bloated, and can be more focused on advanced metrics and explores.
 
-Want a deeper integration between dbt and your BI tool? You should also checkout [Lightdash - the open source alternative to Looker](https://github.com/lightdash/lightdash)
+Want a deeper integration between dbt and your BI tool?
+You should also checkout [Lightdash - the open source alternative to Looker](https://github.com/lightdash/lightdash)
 
 **Features**
 
 * **Column descriptions** synced to looker
 * **Dimension** for each column in dbt model
+* **Define Dimensions** define common lookml settings in dbt like label, group label, hidden
+* **Opinionated Primary key** automatically set the first column to be the primary key, and hide it.
 * **Dimension groups** for datetime/timestamp/date columns
 * **Measures** defined through dbt column `metadata` [see below](#defining-measures)
 * Looker types
-* Warehouses: BigQuery, Snowflake, Redshift (postgres to come)
-
-[![demo](https://raw.githubusercontent.com/hubble-data/dbt2looker/main/docs/demo.gif)](https://asciinema.org/a/407407)
+* Warehouses: BigQuery
 
 ## Quickstart
 
@@ -42,7 +46,7 @@ python3.7 -m venv dbt2looker-venv
 source dbt2looker-venv/bin/activate
 
 # Install
-pip install dbt2looker
+pip install dbt2looker-bigquery
 
 # Run
 dbt2looker
@@ -79,7 +83,13 @@ models:
       - name: event_id
         description: unique event id for page view
         meta:
-           measures:
-             page_views:
-               type: count
+           looker:
+              label: "Event ID in pages"
+              group_label: "id columns"
+              value_format_name: decimal_0
+              hidden: False
+            looker_measures:
+              type: count_distinct
+              type: count
+
 ```

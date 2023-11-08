@@ -8,18 +8,11 @@ try:
 except ImportError:
     from importlib_metadata import version
 
-import yaml
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-
-
 from . import parser
 from . import generator
 
 MANIFEST_PATH = './manifest.json'
-DEFAULT_LOOKML_OUTPUT_DIR = './lookml'
+DEFAULT_LOOKML_OUTPUT_DIR = '.'
 
 
 def get_manifest(prefix: str):
@@ -45,31 +38,12 @@ def get_catalog(prefix: str):
     logging.debug(f'Detected catalog at {catalog_path}')
     return raw_catalog
 
-
-def get_dbt_project_config(prefix: str):
-    project_path  = os.path.join(prefix, 'dbt_project.yml')
-    try:
-        with open(project_path, 'r') as f:
-            project_config = yaml.load(f, Loader=Loader)
-    except FileNotFoundError as e:
-        logging.error(f'Could a dbt_project.yml file at {project_path}. Use --project-dir to change the search path for the dbt_project.yml file.')
-        raise SystemExit('Failed')
-    logging.debug(f'Detected valid dbt config at {project_path}')
-    return project_config
-
-
 def run():
     argparser = argparse.ArgumentParser()
     argparser.add_argument(
         '--version',
         action='version',
         version=f'dbt2looker {version("dbt2looker")}',
-    )
-    argparser.add_argument(
-        '--project-dir',
-        help='Path to dbt project directory containing dbt_project.yml. Default is "."',
-        default='./',
-        type=str,
     )
     argparser.add_argument(
         '--target-dir',
@@ -110,34 +84,20 @@ def run():
     # Load raw manifest file
     raw_manifest = get_manifest(prefix=args.target_dir)
     raw_catalog = get_catalog(prefix=args.target_dir)
-    raw_config = get_dbt_project_config(prefix=args.project_dir)
-
     # Get dbt models from manifest
-    dbt_project_config = parser.parse_dbt_project_config(raw_config)
     typed_dbt_models = parser.parse_typed_models(raw_manifest, raw_catalog, tag=args.tag)
     adapter_type = parser.parse_adapter_type(raw_manifest)
-
+    
     # Generate lookml views
     lookml_views = [
         generator.lookml_view_from_dbt_model(model, adapter_type)
         for model in typed_dbt_models
     ]
-    pathlib.Path(os.path.join(args.output_dir, 'views')).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(os.path.join(args.output_dir, 'views')).mkdir(exist_ok=True, parents=True)
     for view in lookml_views:
         with open(os.path.join(args.output_dir, 'views', view.filename), 'w') as f:
             f.write(view.contents)
 
     logging.info(f'Generated {len(lookml_views)} lookml views in {os.path.join(args.output_dir, "views")}')
 
-    # Generate Lookml models
-    connection_name = args.model_connection or dbt_project_config.name
-    lookml_models = [
-        generator.lookml_model_from_dbt_model(model, connection_name)
-        for model in typed_dbt_models
-    ]
-    for model in lookml_models:
-        with open(os.path.join(args.output_dir, model.filename), 'w') as f:
-            f.write(model.contents)
-    
-    logging.info(f'Generated {len(lookml_models)} lookml models in {args.output_dir}')
     logging.info('Success')
