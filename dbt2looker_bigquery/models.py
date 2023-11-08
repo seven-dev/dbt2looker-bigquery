@@ -4,11 +4,11 @@ try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal
-from pydantic import BaseModel, Field, PydanticValueError, validator, root_validator
+from pydantic import BaseModel, Field, validator, root_validator
+
 from . import looker_enums
-from rich import print
 # dbt2looker utility types
-class UnsupportedDbtAdapterError(PydanticValueError):
+class UnsupportedDbtAdapterError(ValueError):
     code = 'unsupported_dbt_adapter'
     msg_template = '{wrong_value} is not a supported dbt adapter'
 

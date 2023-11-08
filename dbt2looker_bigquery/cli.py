@@ -43,7 +43,7 @@ def run():
     argparser.add_argument(
         '--version',
         action='version',
-        version=f'dbt2looker {version("dbt2looker")}',
+        version=f'dbt2looker {version("dbt2looker_bigquery")}',
     )
     argparser.add_argument(
         '--target-dir',

@@ -1,7 +1,6 @@
 import logging
 from typing import Dict, Optional, List
 from . import models as models
-from rich import print
 
 def parse_catalog_nodes(raw_catalog: dict):
     catalog = models.DbtCatalog(**raw_catalog)
