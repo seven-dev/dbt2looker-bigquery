@@ -97,9 +97,13 @@ class DbtModelColumn(BaseModel):
             values['name'] = nested_name  # Update the name to just the nested field's name
         return values
 
+class DbtModelMetaLooker(DbtMetaLooker):
+    ''' Looker-specific metadata about a dbt model '''
+    label: Optional[str] = None
+
 class DbtModelMeta(BaseModel):
     ''' Metadata about a dbt model '''
-    label: Optional[str] = None
+    looker: Optional[DbtModelMetaLooker] = None
 
 class DbtModel(DbtNode):
     ''' A dbt model '''

@@ -194,6 +194,10 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         }
     }
 
+    # Add 'label' only if it exists
+    if hasattr(model.meta.looker, 'label'):
+        lookml['view']['label'] = model.meta.looker.label
+
     logging.debug(
         f'Created view from model %s with %d measures, %d dimensions, %d dimension groups',
         model.name,
