@@ -20,7 +20,9 @@ def tags_match(query_tag: str, model: models.DbtModel) -> bool:
 
 def parse_models(raw_manifest: dict, tag=None) -> List[models.DbtModel]:
     '''Parse dbt models from manifest and filter by tag if provided'''
+
     manifest = models.DbtManifest(**raw_manifest)
+
     for node in manifest.nodes.values():
         if node.resource_type == 'model':
             logging.debug('Found model %s', node)

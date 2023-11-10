@@ -3,6 +3,9 @@ import logging
 import lkml
 from . import models
 
+class NotImplementedError(Exception):
+    pass
+
 LOOKER_DTYPE_MAP = {
     'bigquery': {
         'INT64':     'number',
@@ -68,26 +71,35 @@ def map_adapter_type_to_looker(adapter_type: models.SupportedDbtAdapters, column
     return looker_type
 
 def lookml_date_time_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters):
-    return {
-        'name': column.name,
-        'type': 'time',
-        'sql': f'${{TABLE}}.{column.name}',
-        'description': column.description,
-        'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
-        'timeframes': looker_time_timeframes,
-        'convert_tz': 'yes'
-    }
+    if map_adapter_type_to_looker(adapter_type, column.data_type) is None:
+        raise NotImplementedError()
+    else:
+        date_time_group = {
+            'name': column.name,
+            'type': 'time',
+            'sql': f'${{TABLE}}.{column.name}',
+            'description': column.description,
+            'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
+            'timeframes': looker_time_timeframes,
+            'convert_tz': 'yes'
+        }
+        if column.meta.looker.timeframes != None:
+            date_time_group['timeframes'] = column.meta.looker.timeframes
+        return date_time_group
 
 def lookml_date_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters):
-    return {
-        'name': column.name,
-        'type': 'time',
-        'sql': f'${{TABLE}}.{column.name}',
-        'description': column.description,
-        'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
-        'timeframes': looker_date_timeframes,
-        'convert_tz': 'no'
-    }
+    if map_adapter_type_to_looker(adapter_type, column.data_type) is None:
+        raise NotImplementedError()
+    else:
+        return {
+            'name': column.name,
+            'type': 'time',
+            'sql': f'${{TABLE}}.{column.name}',
+            'description': column.description,
+            'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
+            'timeframes': looker_date_timeframes,
+            'convert_tz': 'no'
+        }
 
 def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
     date_times = [
@@ -98,7 +110,6 @@ def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: mod
     dates = [
         lookml_date_dimension_group(column, adapter_type)
         for column in model.columns.values()
-        # if column.meta.dimension.enabled
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_date_types
     ]
     return date_times + dates

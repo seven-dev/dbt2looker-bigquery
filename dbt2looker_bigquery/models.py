@@ -64,6 +64,7 @@ class DbtMetaLooker(BaseModel):
     label: Optional[str] = None
     group_label: Optional[str] = None
     value_format_name: Optional[looker_enums.LookerValueFormatName] = None
+    timeframes: Optional[List[looker_enums.LookerTimeFrame]] = None
 
 class DbtMetaMeasure(DbtMetaLooker):
     ''' A measure defined in a dbt model'''
@@ -145,7 +146,7 @@ class DbtManifestMetadata(BaseModel):
         except ValueError:
             raise UnsupportedDbtAdapterError(wrong_value=v)
         return v
-
+    
 class DbtManifest(BaseModel):
     nodes: Dict[str, Union[DbtModel, DbtNode]]
     metadata: DbtManifestMetadata
