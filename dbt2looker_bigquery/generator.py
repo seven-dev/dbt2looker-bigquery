@@ -141,10 +141,7 @@ def lookml_measures_from_model(model: models.DbtModel):
 
     # Iterate over all columns in the model.
     for column in model.columns.values():
-        print(column.meta)
         if hasattr(column.meta, 'looker_measures'):
-            print(column.meta.looker_measures)
-
             # For each measure found in the combined dictionary, create a lookml_measure.
             for measure in column.meta.looker_measures:
                 # Call the lookml_measure function and append the result to the list.
@@ -200,6 +197,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         len(lookml['view']['dimensions']),
         len(lookml['view']['dimension_groups']),
     )
+
     try: 
         contents = lkml.dump(lookml)
     except TypeError as e:

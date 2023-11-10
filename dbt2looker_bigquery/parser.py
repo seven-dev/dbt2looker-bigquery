@@ -23,7 +23,7 @@ def parse_models(raw_manifest: dict, tag=None) -> List[models.DbtModel]:
     manifest = models.DbtManifest(**raw_manifest)
     for node in manifest.nodes.values():
         if node.resource_type == 'model':
-            logging.debug(print('Found model %s', node))
+            logging.debug('Found model %s', node)
 
     all_models: List[models.DbtModel] = [
         node
@@ -59,12 +59,12 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
     logging.debug('Found manifest entries for %d models', len(dbt_models))
 
     for model in dbt_models:
-        # logging.debug(
-        #     'Model %s has %d columns with %d measures',
-        #     model.name,
-        #     len(model.columns),
-        #     reduce(lambda acc, col: acc + len(col.meta.measures) + len(col.meta.measure) + len(col.meta.metrics) + len(col.meta.metric), model.columns.values(), 0)
-        # )
+        logging.debug(
+            'Model %s has %d columns with %d measures',
+            model.name,
+            len(model.columns),
+            sum([len(col.meta.looker_measures) for col in model.columns.values()])
+        )
         if model.unique_id not in catalog_nodes:
             logging.warning(
                 f'Model {model.unique_id} not found in catalog. No looker view will be generated. '
