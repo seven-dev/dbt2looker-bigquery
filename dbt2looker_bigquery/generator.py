@@ -41,12 +41,17 @@ looker_date_types = ['date']
 looker_scalar_types = ['number', 'yesno', 'string']
 
 looker_date_timeframes = [
-    'raw',
-    'time',
     'date',
+    'day_of_month',
+    'day_of_week',
+    'day_of_week_index',
     'week',
+    'week_of_year',
+    'month_name',
     'month',
+    'month_num',
     'quarter',
+    'quarter_of_year',
     'year',
 ]
 
@@ -69,7 +74,7 @@ def lookml_date_time_dimension_group(column: models.DbtModelColumn, adapter_type
         'sql': f'${{TABLE}}.{column.name}',
         'description': column.description,
         'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
-        'timeframes': looker_date_timeframes,
+        'timeframes': looker_time_timeframes,
         'convert_tz': 'yes'
     }
 
@@ -80,7 +85,7 @@ def lookml_date_dimension_group(column: models.DbtModelColumn, adapter_type: mod
         'sql': f'${{TABLE}}.{column.name}',
         'description': column.description,
         'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
-        'timeframes': looker_time_timeframes,
+        'timeframes': looker_date_timeframes,
         'convert_tz': 'no'
     }
 
@@ -179,7 +184,6 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
 
 def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
     ''' Create a looker view from a dbt model '''
-
     lookml = {
         'view': {
             'name': model.name,
@@ -204,4 +208,4 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         print(f"{e} : {lookml}")
 
     filename = f'{model.name}.view.lkml'
-    return models.LookViewFile(filename=filename, contents=contents)
+    return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)

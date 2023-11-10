@@ -56,6 +56,7 @@ class LookViewFile(BaseModel):
     ''' A file in a looker view directory '''
     filename: str
     contents: str
+    schema: str
 
 class DbtMetaLooker(BaseModel):
     ''' Looker-specific metadata for a dbt model '''
@@ -98,7 +99,7 @@ class DbtModelColumn(BaseModel):
 
 class DbtModelMeta(BaseModel):
     ''' Metadata about a dbt model '''
-    pass
+    label: Optional[str] = None
 
 class DbtModel(DbtNode):
     ''' A dbt model '''
