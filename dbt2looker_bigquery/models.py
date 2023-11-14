@@ -56,7 +56,7 @@ class LookViewFile(BaseModel):
     ''' A file in a looker view directory '''
     filename: str
     contents: str
-    schema: str
+    db_schema: str = Field(..., alias='schema')
 
 class DbtMetaLooker(BaseModel):
     ''' Looker-specific metadata for a dbt model '''
