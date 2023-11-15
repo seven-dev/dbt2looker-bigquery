@@ -95,8 +95,8 @@ def run():
     ]
     pathlib.Path(os.path.join(args.output_dir, 'views')).mkdir(exist_ok=True, parents=True)
     for view in lookml_views:
-        pathlib.Path(os.path.join(args.output_dir, 'views', view.schema)).mkdir(exist_ok=True, parents=True)
-        with open(os.path.join(args.output_dir, 'views', view.schema, view.filename), 'w') as f:
+        pathlib.Path(os.path.join(args.output_dir, 'views', view.db_schema)).mkdir(exist_ok=True, parents=True)
+        with open(os.path.join(args.output_dir, 'views', view.db_schema, view.filename), 'w') as f:
             f.write(view.contents)
 
     logging.info(f'Generated {len(lookml_views)} lookml views in {os.path.join(args.output_dir, "views")}')
