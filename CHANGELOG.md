@@ -1,6 +1,15 @@
 # Changelog
 
-Recent and upcoming changes to dbt2looker
+Recent and upcoming changes to dbt2looker-bigquery
+
+## 0.12.0b5
+- add label for dimensions
+- add group label for dimension and measures
+- add value format name for dimensions and measures
+- add custom timeframes for dimension groups
+- add rudimentary support for arrays
+- laid some groundwork for handling structs (not supported yet)
+- started work of making tests
 
 ## 0.11.0
 ### Added

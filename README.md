@@ -83,11 +83,6 @@ models:
       - name: event_id
         description: unique event id for page view
         meta:
-           looker:
-              label: "Event ID in pages"
-              group_label: "id columns"
-              value_format_name: decimal_0
-              hidden: False
             looker_measures:
               type: count_distinct
               type: count
