@@ -18,7 +18,7 @@ def tags_match(query_tag: str, model: models.DbtModel) -> bool:
     except ValueError:
         return query_tag == model.tags
 
-def parse_models(raw_manifest: dict, tag=None) -> List[models.DbtModel]:
+def parse_models(raw_manifest: dict, tag=None, exposures_only=False) -> List[models.DbtModel]:
     '''Parse dbt models from manifest and filter by tag if provided'''
 
     manifest = models.DbtManifest(**raw_manifest)
@@ -33,14 +33,34 @@ def parse_models(raw_manifest: dict, tag=None) -> List[models.DbtModel]:
         if node.resource_type == 'model' and hasattr(node, 'name')
     ]
 
+    if exposures_only == True:
+        all_exposures = [
+            node
+            for node in manifest.exposures.values()
+            if node.resource_type == 'exposure' and hasattr(node, 'name')
+        ]
+        print(all_exposures)
+        exposed_model_names: List[str] = get_exposed_models(all_exposures)
+        
+
     for model in all_models:
         if not hasattr(model, 'name'):
             logging.error('Cannot parse model with id: "%s" - is the model file empty?', model.unique_id)
             raise SystemExit('Failed')
 
-    if tag is None:
+    if tag is None and exposures_only == False:
         return all_models
-    return [model for model in all_models if tags_match(tag, model)]
+    elif tag is None and exposures_only == True:
+        print(exposed_model_names)
+        return [model for model in all_models if model.name in exposed_model_names]
+    elif tag is not None and exposures_only == False:
+        return [model for model in all_models if tags_match(tag, model)]
+    elif tag is not None and exposures_only == True:
+        return [model for model in all_models if tags_match(tag, model) and model.name in exposed_model_names]
+    else:
+        print("Something went wrong")
+        logging.error('Invalid combination of arguments')
+        raise SystemExit('Failed')
 
 
 def check_models_for_missing_column_types(dbt_typed_models: List[models.DbtModel]):
@@ -53,10 +73,19 @@ def get_column_type_from_catalog(catalog_nodes: Dict[str, models.DbtCatalogNode]
     column = None if node is None else node.columns.get(column_name)
     return None if column is None else column.type
 
+def get_exposed_models(exposures: List[models.DbtExposure]) -> list:
+    # Print exposures
+    exposed_models = []
+    for exposure in exposures:
+            for ref in exposure.refs:
+                exposed_models.append(ref.name)
 
-def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str] = None):
+    unique_exposed_models = list(set(exposed_models))
+    return unique_exposed_models
+
+def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str] = None, exposures_only: bool = False):
     catalog_nodes = parse_catalog_nodes(raw_catalog)
-    dbt_models = parse_models(raw_manifest, tag=tag)
+    dbt_models = parse_models(raw_manifest, tag=tag, exposures_only=exposures_only)
     adapter_type = parse_adapter_type(raw_manifest)
     logging.debug('Found manifest entries for %d models', len(dbt_models))
 
@@ -74,8 +103,8 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
 
     # Update dbt models with data types from catalog
     dbt_typed_models = [
-        model.copy(update={'columns': {
-            column.name: column.copy(update={
+        model.model_copy(update={'columns': {
+            column.name: column.model_copy(update={
                 'data_type': get_column_type_from_catalog(catalog_nodes, model.unique_id, column.name)
             })
             for column in model.columns.values()

@@ -21,6 +21,19 @@ class DbtNode(BaseModel):
     unique_id: str
     resource_type: str
 
+class DbtExposureRef(BaseModel):
+    ''' A reference in a dbt exposure '''
+    name: str
+    package: Optional[str]
+    version: Optional[str]
+
+class DbtExposure(DbtNode):
+    ''' A dbt exposure '''
+    name: str
+    description: Optional[str]
+    url: Optional[str]
+    refs: List[DbtExposureRef]
+
 class DbtCatalogNodeMetadata(BaseModel):
     ''' Metadata about a dbt catalog node '''
     type: str
@@ -150,3 +163,4 @@ class DbtManifestMetadata(BaseModel):
 class DbtManifest(BaseModel):
     nodes: Dict[str, Union[DbtModel, DbtNode]]
     metadata: DbtManifestMetadata
+    exposures : Dict[str, DbtExposure]

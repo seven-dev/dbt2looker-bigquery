@@ -74,6 +74,16 @@ def run():
         help='DB Connection Name for generated model files',
         type=str,
     )
+    argparser.add_argument(
+        '--remove-schema-string',
+        help='string to remove from folder name when generating lookml files',
+        type=str,
+    )
+    argparser.add_argument(
+        '--exposures_only',
+        help='add this flag to only generate lookml files for exposures',
+        action='store_true',  # This makes the flag a boolean argument
+    )
     args = argparser.parse_args()
     logging.basicConfig(
         level=getattr(logging, args.log_level),
@@ -85,7 +95,8 @@ def run():
     raw_manifest = get_manifest(prefix=args.target_dir)
     raw_catalog = get_catalog(prefix=args.target_dir)
     # Get dbt models from manifest
-    typed_dbt_models = parser.parse_typed_models(raw_manifest, raw_catalog, tag=args.tag)
+    typed_dbt_models = parser.parse_typed_models(raw_manifest, raw_catalog, tag=args.tag, exposures_only=args.exposures_only)
+
     adapter_type = parser.parse_adapter_type(raw_manifest)
     
     # Generate lookml views
@@ -95,6 +106,9 @@ def run():
     ]
     pathlib.Path(os.path.join(args.output_dir, 'views')).mkdir(exist_ok=True, parents=True)
     for view in lookml_views:
+        # handle schema name
+        if args.remove_schema_string:
+            view.db_schema = view.db_schema.replace(args.remove_schema_string, '')
         pathlib.Path(os.path.join(args.output_dir, 'views', view.db_schema)).mkdir(exist_ok=True, parents=True)
         with open(os.path.join(args.output_dir, 'views', view.db_schema, view.filename), 'w') as f:
             f.write(view.contents)
