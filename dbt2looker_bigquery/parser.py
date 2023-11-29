@@ -39,7 +39,6 @@ def parse_models(raw_manifest: dict, tag=None, exposures_only=False) -> List[mod
             for node in manifest.exposures.values()
             if node.resource_type == 'exposure' and hasattr(node, 'name')
         ]
-        print(all_exposures)
         exposed_model_names: List[str] = get_exposed_models(all_exposures)
         
 
@@ -51,14 +50,12 @@ def parse_models(raw_manifest: dict, tag=None, exposures_only=False) -> List[mod
     if tag is None and exposures_only == False:
         return all_models
     elif tag is None and exposures_only == True:
-        print(exposed_model_names)
         return [model for model in all_models if model.name in exposed_model_names]
     elif tag is not None and exposures_only == False:
         return [model for model in all_models if tags_match(tag, model)]
     elif tag is not None and exposures_only == True:
         return [model for model in all_models if tags_match(tag, model) and model.name in exposed_model_names]
     else:
-        print("Something went wrong")
         logging.error('Invalid combination of arguments')
         raise SystemExit('Failed')
 

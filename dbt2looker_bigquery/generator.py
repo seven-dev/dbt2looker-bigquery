@@ -277,7 +277,6 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
             'measures': lookml_measures_from_model(model),
         }
     }
-    print(lookml)
 
     # Add 'label' only if it exists
     if hasattr(model.meta.looker, 'label'):
@@ -295,6 +294,5 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         contents = lkml.dump(lookml)
     except TypeError as e:
         print(f"{e} : {lookml}")
-    print(contents)
     filename = f'{model.name}.view.lkml'
     return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)
