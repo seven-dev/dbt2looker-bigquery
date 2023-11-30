@@ -156,12 +156,10 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
         }
 
         dimension_group_set = {
-            'set':  {
             'name' : f's_{column.name}',
             'fields': [
                 f"{column.name}_{looker_time_timeframe}" for looker_time_timeframe in timeframes
             ]
-        }
         }
 
         return dimension_group, dimension_group_set
