@@ -24,18 +24,8 @@ LOOKER_DTYPE_MAP = {
         'ARRAY':     'string',
         'GEOGRAPHY': 'string',
         'BYTES':     'string',
-        'ARRAY<STRING>': 'string',
-        'ARRAY<INT64>': 'string',
-        'ARRAY<FLOAT64>': 'string',
-        'ARRAY<NUMERIC>': 'string',
-        'ARRAY<BOOLEAN>': 'string',
-        'ARRAY<TIMESTAMP>': 'string',
-        'ARRAY<DATETIME>': 'string',
-        'ARRAY<DATE>': 'string',
-        'ARRAY<TIME>': 'string',
-        'ARRAY<BOOL>': 'string',
-        'ARRAY<BYTES>': 'string',
-        'ARRAY<GEOGRAPHY>': 'string',
+        'ARRAY':     'array',
+        'STRUCT':    'struct',
     }
 }
 
@@ -65,74 +55,15 @@ looker_time_timeframes = [
 ]
 
 def map_adapter_type_to_looker(adapter_type: models.SupportedDbtAdapters, column_type: str):
+    if adapter_type == 'bigquery' and column_type:
+        column_type = column_type.split('<')[0]
+
     looker_type = LOOKER_DTYPE_MAP[adapter_type].get(column_type)
     if (column_type is not None) and (looker_type is None):
         logging.warning(f'Column type {column_type} not supported for conversion from {adapter_type} to looker. No dimension will be created.')
     return looker_type
 
-# def lookml_date_time_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters):
-#     if map_adapter_type_to_looker(adapter_type, column.data_type) is None:
-#         raise NotImplementedError()
-#     else:
-#         date_time_group = {
-#             'name': column.name,
-#             'type': 'time',
-#             'sql': f'${{TABLE}}.{column.name}',
-#             'description': column.description,
-#             'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
-#             'timeframes': looker_time_timeframes,
-#             'convert_tz': 'yes'
-#         }
-#         if column.meta.looker.timeframes != None:
-#             date_time_group['timeframes'] = column.meta.looker.timeframes
-                
-#         date_time_group_set = {
-#             'set':  {
-#             'name' : f'dateset_{column.name}',
-#             'fields': [
-#                 f"{column.name}_{looker_time_timeframe}" for looker_time_timeframe in date_time_group['timeframes']
-#             ]
-#         }
-#         }
-
-#         date_time_group_list = []
-#         date_time_group_list.append(date_time_group)
-#         date_time_group_list.append(date_time_group_set)
-        
-#         return date_time_group_list
-
-# def lookml_date_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters):
-#     if map_adapter_type_to_looker(adapter_type, column.data_type) is None:
-#         raise NotImplementedError()
-#     else:
-        
-#         date_group = {
-#             'name': column.name,
-#             'type': 'time',
-#             'sql': f'${{TABLE}}.{column.name}',
-#             'description': column.description,
-#             'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
-#             'timeframes': looker_date_timeframes,
-#             'convert_tz': 'no'
-#         }
-
-#         date_group_set = {
-#             'set':  {
-#             'name' : f'dateset_{column.name}',
-#             'fields': [
-#                 f"{column.name}_{looker_time_timeframe}" for looker_time_timeframe in date_group['timeframes']
-#             ]
-#         }
-#         }
-
-#         date_group_list = []
-#         date_group_list.append(date_group)
-#         date_group_list.append(date_group_set)
-
-#         return date_group_list
-
 def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters, type: str):
-
     if map_adapter_type_to_looker(adapter_type, column.data_type) is None:
         raise NotImplementedError()
     else:
@@ -188,8 +119,11 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
     is_first_dimension = True  # Flag to identify the first dimension
 
     for column in model.columns.values():
-        is_hidden = False
-
+        if 'season_episode' in model.name:
+            # print(f"{model.name} Column {column.name} has data type {column.data_type}")
+            if column.data_type is None:
+                continue
+                # print(f"{model.name} Column {column.name} has no data type")
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_scalar_types:
             dimension = {
                 'name': column.name,
@@ -265,6 +199,7 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
 
 def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
     ''' Create a looker view from a dbt model '''
+
     lookml = {
         'view': {
             'name': model.name,

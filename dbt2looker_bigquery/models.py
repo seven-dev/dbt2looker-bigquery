@@ -48,6 +48,46 @@ class DbtCatalogNodeColumn(BaseModel):
     comment: Optional[str]
     index: int
     name: str
+    child_name: Optional[str]
+    parent: Optional[str]  # Added field to store the parent node
+    
+    @validator('child_name', always=True)
+    def validate_child(cls, _, values):
+        """Validates or extracts something from 'parent', potentially using other fields like 'index'."""
+        name = values.get('name')
+        # Check if there is a non-None 'parent' and validate it.
+        try:
+            parent_parts = name.split('.')
+            return parent_parts[-1]
+        except:
+            return name
+
+    @validator('parent', always=True)
+    def validate_parent(cls, _, values):
+        """Validates or extracts something from 'parent', potentially using other fields like 'index'."""
+        name = values.get('name')
+        # Check if there is a non-None 'parent' and validate it.
+        try:
+            parent_parts = name.split('.')
+            if len(parent_parts) == 1:
+                return None
+            else:
+                return parent_parts[-2]
+        except:
+            return None
+
+class DbtCatalogNodeRelationship(BaseModel):
+    ''' A model for nodes containing relationships '''
+    type: str
+    columns: List[DbtCatalogNodeColumn]
+    relationships: List[str]  # List of relationships, adjust the type accordingly
+    parent: Optional[str]  # Added field to store the parent node
+
+    # @validator("type")
+    # def validate_relationship_type(cls, value):
+    #     if "<" not in value and ">" not in value:
+    #         raise ValueError("The 'type' field must contain '<>'")
+    #     return value
 
 class DbtCatalogNode(BaseModel):
     ''' A dbt catalog node '''
@@ -98,7 +138,7 @@ class DbtModelColumn(BaseModel):
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
     parent_name: Optional[str] = None
-
+    
     # Root validator
     @root_validator(pre=True)
     def set_nested_and_parent_name(cls, values):

@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Optional, List
 from . import models as models
+from rich import print
 
 def parse_catalog_nodes(raw_catalog: dict):
     catalog = models.DbtCatalog(**raw_catalog)
@@ -82,6 +83,11 @@ def get_exposed_models(exposures: List[models.DbtExposure]) -> list:
 
 def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str] = None, exposures_only: bool = False):
     catalog_nodes = parse_catalog_nodes(raw_catalog)
+    for k,node in catalog_nodes.items():
+        # print('Found model %s', node.columns)
+        for k, n in node.columns.items():
+            if n.parent is not None:
+                print('Found column %s', n)
     dbt_models = parse_models(raw_manifest, tag=tag, exposures_only=exposures_only)
     adapter_type = parse_adapter_type(raw_manifest)
     logging.debug('Found manifest entries for %d models', len(dbt_models))
@@ -99,7 +105,7 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
                 f'Check if model has materialized in {adapter_type} at {model.relation_name}')
 
     # Update dbt models with data types from catalog
-    dbt_typed_models = [
+    dbt_typed_models = [  
         model.copy(update={'columns': {
             column.name: column.copy(update={
                 'data_type': get_column_type_from_catalog(catalog_nodes, model.unique_id, column.name)
@@ -113,5 +119,7 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
     logging.debug('Catalog entries missing for %d models', len(dbt_models) - len(dbt_typed_models))
     check_models_for_missing_column_types(dbt_typed_models)
     return dbt_typed_models
+
+
 
 
