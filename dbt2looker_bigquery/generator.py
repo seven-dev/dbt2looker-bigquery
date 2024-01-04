@@ -293,6 +293,8 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     ''' Create a looker view from a dbt model '''
     parent_group = process_columns(model)
 
+    # todo - create a view file for each parent group
+    # todo - create a explore that joins all the parent groups
     if parent_group:
         print(parent_group)
 
