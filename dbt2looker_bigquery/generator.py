@@ -197,8 +197,104 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
         m['hidden'] = measure.hidden.value
     return m
 
+
+def process_columns(model):
+    parent_group = {}
+
+    # Initialize parent_group with model columns.
+    for column in model.columns.values():
+        if column.nested:
+            # Add nested columns under their direct parents.
+            parent_group.setdefault(column.parent_name, []).append(column.name)
+
+    def flatten_parents(parents_dict):
+        updates = {}
+
+        for parent, children in list(parents_dict.items()):
+            if "." in parent:
+                top_parent, sub_parent = parent.split(".", 1)
+
+                updates.setdefault(top_parent, [])
+
+                new_entry = {sub_parent: children}
+                existing_entry = next((item for item in updates[top_parent] if isinstance(item, dict) and sub_parent in item), None)
+
+                if existing_entry:
+                    existing_entry[sub_parent].extend(children)
+                else:
+                    updates[top_parent].append(new_entry)
+
+                del parents_dict[parent]
+
+        for key, value_list in updates.items():
+            current_children = parents_dict.get(key, []) or []
+
+            for value_item in value_list:
+                value_exists = any("." in k for k in value_item)
+
+                if isinstance(value_item, dict):
+                    child_key = next(iter(value_item))
+
+                    for existing_item in current_children:
+                        if isinstance(existing_item, dict) and child_key in existing_item:
+                            existing_item[child_key].extend(value_item[child_key])
+                            value_exists = True
+                            break
+
+                    if not value_exists:
+                        current_children.append(value_item)
+
+                elif not isinstance(value_item, dict):
+                    current_children.append(value_item)
+
+            parents_dict[key] = current_children
+
+        return any("." in k for k in parents_dict)
+
+    while flatten_parents(parent_group):
+        pass
+
+    return parent_group
+
+def flatten_parents(parents_dict):
+    updates = {}
+
+    for parent, children in list(parents_dict.items()):
+        if "." in parent:
+            top_parent, sub_parent = parent.split(".", 1)
+
+            updates.setdefault(top_parent, [])
+
+            new_entry = {sub_parent: children}
+            existing_entry = next((item for item in updates[top_parent] if isinstance(item, dict) and sub_parent in item), None)
+
+            if existing_entry:
+                existing_entry[sub_parent].extend(children)
+            else:
+                updates[top_parent].append(new_entry)
+
+            del parents_dict[parent]
+
+    for key, value_list in updates.items():
+        current_children = parents_dict.get(key, []) or []
+
+        for value_item in value_list:
+            if isinstance(value_item, dict):
+                child_key = next(iter(value_item))
+                current_children.append({child_key: value_item[child_key]})
+            else:
+                current_children.append(value_item)
+
+        parents_dict[key] = current_children
+
+    return any("." in k for k in parents_dict)
+
 def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
     ''' Create a looker view from a dbt model '''
+    parent_group = process_columns(model)
+
+    if parent_group:
+        print(parent_group)
 
     lookml = {
         'view': {

@@ -7,6 +7,7 @@ except ImportError:
 from pydantic import BaseModel, Field, validator, root_validator
 
 from . import looker_enums
+
 # dbt2looker utility types
 class UnsupportedDbtAdapterError(ValueError):
     code = 'unsupported_dbt_adapter'
@@ -188,7 +189,6 @@ class DbtModel(DbtNode):
                 new_columns[name.lower()] = column.copy(update={'name': column.name.lower()})
         return new_columns
 
-
 class DbtManifestMetadata(BaseModel):
     adapter_type: str
 
@@ -199,7 +199,7 @@ class DbtManifestMetadata(BaseModel):
         except ValueError:
             raise UnsupportedDbtAdapterError(wrong_value=v)
         return v
-    
+
 class DbtManifest(BaseModel):
     nodes: Dict[str, Union[DbtModel, DbtNode]]
     metadata: DbtManifestMetadata
