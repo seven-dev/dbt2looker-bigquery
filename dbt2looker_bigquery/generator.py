@@ -96,12 +96,16 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
         return dimension_group, dimension_group_set
 
 
-def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
+def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters, parent=None):
 
     dimension_groups = []
     dimension_group_sets = []
 
     for column in model.columns.values(): 
+        if parent:
+            if column.parent_name != parent:
+                continue
+
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_date_time_types: 
             dimension_group, dimension_set = lookml_dimension_group(column, adapter_type, 'time')            
         elif map_adapter_type_to_looker(adapter_type, column.data_type) in looker_date_types:
@@ -114,23 +118,28 @@ def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: mod
 
     return {'dimension_groups' : dimension_groups, 'dimension_group_sets': dimension_group_sets}
 
-def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
+def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters, parent=None):
     dimensions = []
     is_first_dimension = True  # Flag to identify the first dimension
 
+
+
     for column in model.columns.values():
-        if 'season_episode' in model.name:
-            # print(f"{model.name} Column {column.name} has data type {column.data_type}")
-            if column.data_type is None:
-                continue
-                # print(f"{model.name} Column {column.name} has no data type")
+
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_scalar_types:
+            if parent:
+                if column.parent_name != parent:
+                    continue
+
             dimension = {
                 'name': column.name,
                 'type': map_adapter_type_to_looker(adapter_type, column.data_type),
                 'sql': f'${{TABLE}}.{column.name}',
                 'description': column.description,
             }
+            if dimension.get('type') == 'struct' or dimension.get('type') == 'array':
+                dimension['hidden'] = 'yes'
+                dimension = dimension.pop('type')
 
             if is_first_dimension:
                 dimension['primary_key'] = 'yes'
@@ -155,12 +164,16 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
 
     return dimensions
 
-def lookml_measures_from_model(model: models.DbtModel):
+def lookml_measures_from_model(model: models.DbtModel, parent=None):
     # Initialize an empty list to hold all lookml measures.
     lookml_measures = []
 
     # Iterate over all columns in the model.
     for column in model.columns.values():
+        if parent:
+            if column.parent_name != parent:
+                continue
+
         if hasattr(column.meta, 'looker_measures'):
             # For each measure found in the combined dictionary, create a lookml_measure.
             for measure in column.meta.looker_measures:
@@ -205,101 +218,86 @@ def process_columns(model):
     for column in model.columns.values():
         if column.nested:
             # Add nested columns under their direct parents.
-            parent_group.setdefault(column.parent_name, []).append(column.name)
+            parent_group.setdefault(column.parent_name, []).append(column)
 
-    def flatten_parents(parents_dict):
-        updates = {}
+    # def flatten_parents(parents_dict):
+    #     updates = {}
 
-        for parent, children in list(parents_dict.items()):
-            if "." in parent:
-                top_parent, sub_parent = parent.split(".", 1)
+    #     for parent, children in list(parents_dict.items()):
+    #         if "." in parent:
+    #             top_parent, sub_parent = parent.split(".", 1)
 
-                updates.setdefault(top_parent, [])
+    #             updates.setdefault(top_parent, [])
 
-                new_entry = {sub_parent: children}
-                existing_entry = next((item for item in updates[top_parent] if isinstance(item, dict) and sub_parent in item), None)
+    #             new_entry = {sub_parent: children}
+    #             existing_entry = next((item for item in updates[top_parent] if isinstance(item, dict) and sub_parent in item), None)
 
-                if existing_entry:
-                    existing_entry[sub_parent].extend(children)
-                else:
-                    updates[top_parent].append(new_entry)
+    #             if existing_entry:
+    #                 existing_entry[sub_parent].extend(children)
+    #             else:
+    #                 updates[top_parent].append(new_entry)
 
-                del parents_dict[parent]
+    #             del parents_dict[parent]
 
-        for key, value_list in updates.items():
-            current_children = parents_dict.get(key, []) or []
+    #     for key, value_list in updates.items():
+    #         current_children = parents_dict.get(key, []) or []
 
-            for value_item in value_list:
-                value_exists = any("." in k for k in value_item)
+    #         for value_item in value_list:
+    #             value_exists = any("." in k for k in value_item)
 
-                if isinstance(value_item, dict):
-                    child_key = next(iter(value_item))
+    #             if isinstance(value_item, dict):
+    #                 child_key = next(iter(value_item))
 
-                    for existing_item in current_children:
-                        if isinstance(existing_item, dict) and child_key in existing_item:
-                            existing_item[child_key].extend(value_item[child_key])
-                            value_exists = True
-                            break
+    #                 for existing_item in current_children:
+    #                     if isinstance(existing_item, dict) and child_key in existing_item:
+    #                         existing_item[child_key].extend(value_item[child_key])
+    #                         value_exists = True
+    #                         break
 
-                    if not value_exists:
-                        current_children.append(value_item)
+    #                 if not value_exists:
+    #                     current_children.append(value_item)
 
-                elif not isinstance(value_item, dict):
-                    current_children.append(value_item)
+    #             elif not isinstance(value_item, dict):
+    #                 current_children.append(value_item)
 
-            parents_dict[key] = current_children
+    #         parents_dict[key] = current_children
 
-        return any("." in k for k in parents_dict)
+    #     return any("." in k for k in parents_dict)
 
-    while flatten_parents(parent_group):
-        pass
+    # while flatten_parents(parent_group):
+    #     pass
 
     return parent_group
-
-def flatten_parents(parents_dict):
-    updates = {}
-
-    for parent, children in list(parents_dict.items()):
-        if "." in parent:
-            top_parent, sub_parent = parent.split(".", 1)
-
-            updates.setdefault(top_parent, [])
-
-            new_entry = {sub_parent: children}
-            existing_entry = next((item for item in updates[top_parent] if isinstance(item, dict) and sub_parent in item), None)
-
-            if existing_entry:
-                existing_entry[sub_parent].extend(children)
-            else:
-                updates[top_parent].append(new_entry)
-
-            del parents_dict[parent]
-
-    for key, value_list in updates.items():
-        current_children = parents_dict.get(key, []) or []
-
-        for value_item in value_list:
-            if isinstance(value_item, dict):
-                child_key = next(iter(value_item))
-                current_children.append({child_key: value_item[child_key]})
-            else:
-                current_children.append(value_item)
-
-        parents_dict[key] = current_children
-
-    return any("." in k for k in parents_dict)
 
 def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
     ''' Create a looker view from a dbt model '''
     parent_group = process_columns(model)
-
-    # todo - create a view file for each parent group
+    lookml = {}
+    lookml_list = []
+    
     # todo - create a explore that joins all the parent groups
-    if parent_group:
-        print(parent_group)
+    #        This requires handling nested structs and joins
+    # todo - add struct and array dimensions
+    #        Either by deducing, or ensuring they are included from the model. Currently they are not.
+    # todo - handle array views
+    #        Currently they are not considered nested, and are not included in the view
 
-    lookml = {
-        'view': {
+    if parent_group:
+        for parent, children in parent_group.items():
+            parent_lookml = [
+                {   
+                    'name': model.name + "__" + parent,
+                    'dimensions': lookml_dimensions_from_model(model, adapter_type, parent),
+                    'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, parent).get('dimension_groups'),
+                    'sets' : lookml_dimension_groups_from_model(model, adapter_type, parent).get('dimension_group_sets'),
+                    'measures': lookml_measures_from_model(model, parent),
+                }
+            ]
+            lookml_list.append(parent_lookml)
+        
+
+    lookml_view = [
+        {
             'name': model.name,
             'sql_table_name': model.relation_name,
             'dimensions': lookml_dimensions_from_model(model, adapter_type),
@@ -307,19 +305,34 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
             'sets' : lookml_dimension_groups_from_model(model, adapter_type).get('dimension_group_sets'),
             'measures': lookml_measures_from_model(model),
         }
-    }
+    ]
+    
 
     # Add 'label' only if it exists
     if hasattr(model.meta.looker, 'label'):
-        lookml['view']['label'] = model.meta.looker.label
+        lookml_view['view']['label'] = model.meta.looker.label
+    
+    lookml_list.append(lookml_view)
+    lookml = {
+        'view': lookml_list,
+    }
 
-    logging.debug(
-        f'Created view from model %s with %d measures, %d dimensions, %d dimension groups',
-        model.name,
-        len(lookml['view']['measures']),
-        len(lookml['view']['dimensions']),
-        len(lookml['view']['dimension_groups']),
-    )
+    if parent_group:
+        logging.warn(
+            f"multi view file created for model {model.name} with {len(lookml['view'])} views"
+        )
+        print(model)
+    else:
+        logging.debug(
+            f"Created view from model {model.name}"
+        )
+        # logging.debug(
+        #     f'Created view from model %s with %d measures, %d dimensions, %d dimension groups',
+        #     model.name,
+        #     len(lookml['view']['measures']),
+        #     len(lookml['view']['dimensions']),
+        #     len(lookml['view']['dimension_groups']),
+        # )
 
     try: 
         contents = lkml.dump(lookml)
