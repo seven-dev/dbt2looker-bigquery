@@ -1,11 +1,12 @@
 from enum import Enum
 from typing import Union, Dict, List, Optional
+from rich import print
 try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal
 from pydantic import BaseModel, Field, validator, root_validator
-
+import re
 from . import looker_enums
 
 # dbt2looker utility types
@@ -46,43 +47,47 @@ class DbtCatalogNodeMetadata(BaseModel):
 class DbtCatalogNodeColumn(BaseModel):
     ''' A column in a dbt catalog node '''
     type: str
+    data_type: Optional[str] = 'MISSING'
+    inner_types: Optional[list[str]]=[]
     comment: Optional[str]
     index: int
     name: str
-    child_name: Optional[str]
-    parent: Optional[str]  # Added field to store the parent node
+    # child_name: Optional[str]
+    # parent: Optional[str]  # Added field to store the parent node
     
-    @validator('child_name', always=True)
-    def validate_child(cls, _, values):
-        """Validates or extracts something from 'parent', potentially using other fields like 'index'."""
-        name = values.get('name')
+    @root_validator(pre=True)
+    def validate_inner_type(cls, values):
+        type = values.get('type')
         # Check if there is a non-None 'parent' and validate it.
-        try:
-            parent_parts = name.split('.')
-            return parent_parts[-1]
-        except:
-            return name
+        pattern = re.compile(r'<(.*?)>')
+        matches = pattern.findall(type)
 
-    @validator('parent', always=True)
-    def validate_parent(cls, _, values):
-        """Validates or extracts something from 'parent', potentially using other fields like 'index'."""
-        name = values.get('name')
-        # Check if there is a non-None 'parent' and validate it.
-        try:
-            parent_parts = name.split('.')
-            if len(parent_parts) == 1:
-                return None
-            else:
-                return parent_parts[-2]
-        except:
-            return None
+        def truncate_before_character(string, character):
+            # Find the position of the character in the string.
+            pos = string.find(character)
+            
+            # If found, return everything up to that point.
+            if pos != -1:
+                return string[:pos]
+            
+            # If not found, return the original string.
+            return string
+
+
+        values['data_type'] = truncate_before_character(type, '<')
+        values['inner_types'] = [item.strip() for match in matches for item in match.split(',')]
+        if len(matches) > 0:
+            print(values)
+        return values
+
+
 
 class DbtCatalogNodeRelationship(BaseModel):
     ''' A model for nodes containing relationships '''
     type: str
     columns: List[DbtCatalogNodeColumn]
     relationships: List[str]  # List of relationships, adjust the type accordingly
-    parent: Optional[str]  # Added field to store the parent node
+    # parent: Optional[str]  # Added field to store the parent node
 
     # @validator("type")
     # def validate_relationship_type(cls, value):
@@ -136,20 +141,19 @@ class DbtModelColumn(BaseModel):
     name: str
     description: Optional[str]
     data_type: Optional[str]
+    inner_types: Optional[list[str]]
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
-    parent_name: Optional[str] = None
     
     # Root validator
     @root_validator(pre=True)
     def set_nested_and_parent_name(cls, values):
         name = values.get('name', '')
+
         # If there's a dot in the name, it's a nested field
         if '.' in name:
-            parent, _, nested_name = name.rpartition('.')
             values['nested'] = True
-            values['parent_name'] = parent
-            values['name'] = nested_name  # Update the name to just the nested field's name
+        # If the field is an array, it's a nested field
         return values
 
 class DbtModelMetaLooker(DbtMetaLooker):

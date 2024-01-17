@@ -84,6 +84,11 @@ def run():
         help='add this flag to only generate lookml files for exposures',
         action='store_true',  # This makes the flag a boolean argument
     )
+    argparser.add_argument(
+        '--select_model',
+        help='write the name of the model you want to generate lookml for',
+        type=str
+    )
     args = argparser.parse_args()
     logging.basicConfig(
         level=getattr(logging, args.log_level),
@@ -95,7 +100,7 @@ def run():
     raw_manifest = get_manifest(prefix=args.target_dir)
     raw_catalog = get_catalog(prefix=args.target_dir)
     # Get dbt models from manifest
-    typed_dbt_models = parser.parse_typed_models(raw_manifest, raw_catalog, tag=args.tag, exposures_only=args.exposures_only)
+    typed_dbt_models = parser.parse_typed_models(raw_manifest, raw_catalog, tag=args.tag, exposures_only=args.exposures_only, select_model=args.select_model)
 
     adapter_type = parser.parse_adapter_type(raw_manifest)
     

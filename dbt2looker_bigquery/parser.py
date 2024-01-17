@@ -19,7 +19,7 @@ def tags_match(query_tag: str, model: models.DbtModel) -> bool:
     except ValueError:
         return query_tag == model.tags
 
-def parse_models(raw_manifest: dict, tag=None, exposures_only=False) -> List[models.DbtModel]:
+def parse_models(raw_manifest: dict, tag=None, exposures_only=False, select_model:Optional[str] = None) -> List[models.DbtModel]:
     '''Parse dbt models from manifest and filter by tag if provided'''
 
     manifest = models.DbtManifest(**raw_manifest)
@@ -47,8 +47,10 @@ def parse_models(raw_manifest: dict, tag=None, exposures_only=False) -> List[mod
             logging.error('Cannot parse model with id: "%s" - is the model file empty?', model.unique_id)
             raise SystemExit('Failed')
 
-    if tag is None and exposures_only == False:
+    if tag is None and exposures_only == False and select_model is None:
         return all_models
+    elif select_model is not None:
+        return [model for model in all_models if model.name == select_model]
     elif tag is None and exposures_only == True:
         return [model for model in all_models if model.name in exposed_model_names]
     elif tag is not None and exposures_only == False:
@@ -81,26 +83,15 @@ def check_model_materialization(dbt_models: List[models.DbtModel], catalog_nodes
                 f'Check if model has materialized in {adapter_type} at {model.relation_name}'
             )
 
-def truncate_before_character(string, character):
-    # Find the position of the character in the string.
-    pos = string.find(character)
-    
-    # If found, return everything up to that point.
-    if pos != -1:
-        return string[:pos]
-    
-    # If not found, return the original string.
-    return string
-
-def get_column_type_from_catalog(catalog_nodes: Dict[str, models.DbtCatalogNode], model_id: str, column_name: str, parent_name: str):
+def get_column_type_from_catalog(catalog_nodes: Dict[str, models.DbtCatalogNode], model_id: str, column_name: str):
     node = catalog_nodes.get(model_id)
     column = None if node is None else node.columns.get(column_name.lower())
-    if column is None and parent_name is not None:
-        f = parent_name + '.' + column_name
-        if f == 'image_struct.focusPoint.x':
-            print('Found column %s', f)
-        column = None if node is None else node.columns.get((parent_name + '.' + column_name).lower())
-    return None if column is None else truncate_before_character(column.type, '<')
+    return None if column is None else column.data_type
+
+def get_column_inner_type_from_catalog(catalog_nodes: Dict[str, models.DbtCatalogNode], model_id: str, column_name: str):
+    node = catalog_nodes.get(model_id)
+    column = None if node is None else node.columns.get(column_name.lower())
+    return None if column is None else column.inner_types
 
 def get_column_parent_from_catalog(catalog_nodes: Dict[str, models.DbtCatalogNode], model_id: str, column_name: str):
     node = catalog_nodes.get(model_id)
@@ -122,16 +113,10 @@ def get_exposed_models(exposures: List[models.DbtExposure]) -> list:
     unique_exposed_models = list(set(exposed_models))
     return unique_exposed_models
 
-def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str] = None, exposures_only: bool = False):
+def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str] = None, exposures_only: bool = False, select_model: Optional[str] = None):
     catalog_nodes = parse_catalog_nodes(raw_catalog)
     
-    # for k,node in catalog_nodes.items():
-    #     # print('Found model %s', node.columns)
-    #     for k, n in node.columns.items():
-    #         if n.parent is not None:
-    #             print(n)
-
-    dbt_models = parse_models(raw_manifest, tag=tag, exposures_only=exposures_only)
+    dbt_models = parse_models(raw_manifest, tag=tag, exposures_only=exposures_only, select_model=select_model)
     adapter_type = parse_adapter_type(raw_manifest)
     
     check_model_materialization(dbt_models, raw_catalog, adapter_type)
@@ -140,7 +125,8 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
     dbt_typed_models = [  
         model.copy(update={'columns': {
             column.name: column.copy(update={
-                'data_type': get_column_type_from_catalog(catalog_nodes, model.unique_id, column.name, column.parent_name),
+                'data_type': get_column_type_from_catalog(catalog_nodes, model.unique_id, column.name),
+                'inner_types': get_column_inner_type_from_catalog(catalog_nodes, model.unique_id, column.name),
             })
             for column in model.columns.values()
         }})
@@ -148,15 +134,24 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
         if model.unique_id in catalog_nodes
     ]
 
+    # add catalog only array columns to dbt models
+    for model in dbt_typed_models:
+        for column in catalog_nodes[model.unique_id].columns.values():
+            if column.name not in model.columns:
+                if column.type[0:5] == 'ARRAY':
+                    print(column.name + " is an array column")
+                    new_column = models.DbtModelColumn(
+                        name=column.name,
+                        description="missing column from manifest.json, generated from catalog.json",
+                        data_type=column.data_type,
+                        inner_types=column.inner_types,
+                        meta=models.DbtModelColumnMeta(),
+                    )
+                    model.columns[column.name] = new_column
+
     logging.debug('Found catalog entries for %d models', len(dbt_typed_models))
     logging.debug('Catalog entries missing for %d models', len(dbt_models) - len(dbt_typed_models))
 
     check_models_for_missing_column_types(dbt_typed_models)
-
-    # for model in dbt_typed_models:
-    #     # print('Found model %s', model)
-    #     for k, n in model.columns.items():
-    #         if n.parent_name is not None:
-    #             print(n)
 
     return dbt_typed_models
