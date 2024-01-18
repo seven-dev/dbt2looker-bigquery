@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Union, Dict, List, Optional
 from rich import print
+from collections import defaultdict
+
 try:
     from typing import Literal
 except ImportError:
@@ -139,12 +141,13 @@ class DbtModelColumnMeta(BaseModel):
 class DbtModelColumn(BaseModel):
     ''' A column in a dbt model '''
     name: str
+    lookml_name: str
     description: Optional[str]
     data_type: Optional[str]
     inner_types: Optional[list[str]]
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
-    
+
     # Root validator
     @root_validator(pre=True)
     def set_nested_and_parent_name(cls, values):
@@ -153,6 +156,9 @@ class DbtModelColumn(BaseModel):
         # If there's a dot in the name, it's a nested field
         if '.' in name:
             values['nested'] = True
+
+        values['lookml_name'] = name.split('.')[-1]
+        values['description'] = values.get('description', "This field is missing a description.")
         # If the field is an array, it's a nested field
         return values
 
