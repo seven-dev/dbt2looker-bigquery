@@ -147,9 +147,15 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
 
             if column.name not in include_names:
                 continue
-        if len(exclude_names) > 0:
 
-            if column.name in exclude_names:
+        if len(exclude_names) > 0:
+            # we want to exclude nested data within arrays
+            # but we want to retain the array itself
+            if column.name in exclude_names and not (len(column.inner_types) == 1 and column.inner_types is not None):
+                print(f"excluding {column.name}")
+                print(f"inner types {column.inner_types}")
+                print(f"exclude names {exclude_names}")
+                print(f"len(inner_types) {len(column.inner_types)}")
                 continue
 
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_scalar_types:
