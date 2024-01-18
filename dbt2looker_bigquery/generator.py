@@ -255,51 +255,89 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
     return m
 
 
-def create_parent_list(model: models.DbtModel)->list[models.DbtModelColumn]:
+def extract_array_models(columns: list[models.DbtModelColumn])->list[models.DbtModelColumn]:
     ''' Process columns to determine if they are nested 
         and if so, what the parent group is
     '''
-    parent_list = []
+    array_list = []
 
     # Initialize parent_list with all columns that are arrays
-    for column in model.columns.values():
+    for column in columns:
         if column.data_type is not None:
             if 'ARRAY' == column.data_type:
-                parent_list.append(column)
-    return parent_list
+                array_list.append(column)
+    return array_list
 
-def find_closest_parent(target, parent_list:list[models.DbtModelColumn]):
-    """
-    Find the closest parent from the parent_list for the target string.
-    """
-    for parent in parent_list:
-        if len(parent.inner_types) == 1:
-            if target == parent.name:
-                return parent
-        else:
-            if target.startswith(parent.name) and target != parent.name:
-                return parent
-    return None
 
-def group_strings(model_columns:list[dict[str:models.DbtModelColumn]], parent_list:list[models.DbtModelColumn]):
-    grouped_strings = {}
 
-    # Iterate over the strings to group
-    for key in model_columns.keys():
-        closest_parent = find_closest_parent(key, parent_list)
-        if closest_parent:
-            if closest_parent.name not in grouped_strings:
-                grouped_strings[closest_parent.name] = []
-            grouped_strings[closest_parent.name].append(key)
-    return grouped_strings
+def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[models.DbtModelColumn]):
+    nested_columns = {}
+
+    # def find_closest_parent(model : models.DbtModelColumn, array_models:list[models.DbtModelColumn]):
+    #     """
+    #     Find the closest parent from the parent_list for the target string.
+    #     """
+    #     for array in array_models:
+    #         if len(array.inner_types) == 1:
+    #             if model.name == array.name:
+    #                 return array
+    #         else:
+    #             if model.name.startswith(array.name) and model.name != array.name:
+    #                 return array
+    #     return None
+    
+    def remove_parts(input_string):
+        parts = input_string.split('.')
+        modified_parts = parts[:-1]
+        result = '.'.join(modified_parts)
+        return result
+    
+    def recurse(parent: models.DbtModelColumn, all_columns:list[models.DbtModelColumn], level = 0):
+        structure = {
+            'column' : parent,
+            'children' : []
+        }
+
+        print(f"level {level}, {parent.name}")
+        for column in all_columns:
+            if column.name == parent.name:
+                if column.inner_types is not None:
+                    if len(column.inner_types) == 1:
+                        print(f"column {column.name} is a array child of {parent.name}")
+                        structure['children'].append({column.name : {'column' : column, 'children' : []}})
+
+            elif remove_parts(column.name) == parent.name:
+                print(f"column {column.name} is a direct descendant of {parent.name}")
+
+                structure['children'].append({column.name : recurse(
+                            parent = column,
+                            all_columns = [d for d in all_columns if d.name.startswith(column.name)],
+                            level=level+1)})                
+
+            elif column.name.startswith(parent.name):
+                print(f"column {column.name} is a nested child of {parent.name}")
+
+                structure['children'].append({column.name : recurse(
+                            parent = column,
+                            all_columns = [d for d in all_columns if d.name.startswith(column.name)],
+                            level=level+1)})                
+
+        return structure
+
+    for parent in array_columns:
+        if not '.' in parent.name:
+            nested_columns[parent.name] = recurse(parent, all_columns)
+
+    return nested_columns
+
 
 def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
     ''' Create a looker view from a dbt model 
         if the model has nested arrays, create a view for each array
         and an explore that joins them together
     '''
-    parent_list = create_parent_list(model)
-    structure = group_strings(model.columns, parent_list)
+    array_models = extract_array_models(model.columns.values())
+    structure = group_strings(model.columns.values(), array_models)
     lookml = {}
     lookml_list = []
 
@@ -312,9 +350,12 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         view_label = "MISSING"
 
     exclude_names = []
+
     # this is for handling arrays
     if structure:
+        print(structure)
         for parent, children in structure.items():
+
             parent_lookml = [
                 {   
                     'name': model.name + "__" + parent ,
@@ -342,7 +383,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
 
     lookml_list.append(lookml_view)
 
-    if len(parent_list) > 1:
+    if len(array_models) > 0:
         lookml_explore = [
         {
             'name': model.name,
