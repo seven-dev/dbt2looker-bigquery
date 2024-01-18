@@ -288,19 +288,20 @@ def group_strings(model_columns:list[dict[str:models.DbtModelColumn]], parent_li
     return grouped_strings
 
 def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
-    ''' Create a looker view from a dbt model '''
+    ''' Create a looker view from a dbt model 
+        if the model has nested arrays, create a view for each array
+        and an explore that joins them together
+    '''
     parent_list = create_parent_list(model)
     structure = group_strings(model.columns, parent_list)
-    print(structure)
     lookml = {}
     lookml_list = []
 
-    # todo - create explore for the views 
     # Add 'label' only if it exists
     if hasattr(model.meta.looker, 'label'):
         view_label = model.meta.looker.label
     elif hasattr(model, 'name'):
-        view_label = model.name
+        view_label = model.name.replace("_", " ").title()
     else:
         view_label = "MISSING"
 
@@ -311,7 +312,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
             parent_lookml = [
                 {   
                     'name': model.name + "__" + parent ,
-                    'label': view_label + " " + parent,
+                    'label': view_label + " : " + parent.replace("_", " ").title(),
                     'dimensions': lookml_dimensions_from_model(model, adapter_type, include_names=children),
                     'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, include_names=children).get('dimension_groups'),
                     'sets' : lookml_dimension_groups_from_model(model, adapter_type, include_names=children).get('dimension_group_sets'),
@@ -319,7 +320,6 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
                 }
             ]
             exclude_names.extend(children)
-            # print(parent_lookml)
             lookml_list.append(parent_lookml)
 
     lookml_view = [
@@ -340,7 +340,8 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         lookml_explore = [
         {
             'name': model.name,
-            'joins': []
+            'joins': [],
+            'hidden': 'yes'
         }
         ]
         for parent in structure.keys():
@@ -364,6 +365,6 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     try: 
         contents = lkml.dump(lookml)
     except TypeError as e:
-        print(f"TYPEERROR {e}")
+        logging.warning(f"TYPEERROR {e}")
     filename = f'{model.name}.view.lkml'
     return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)

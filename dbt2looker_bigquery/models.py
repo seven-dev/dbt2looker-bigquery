@@ -1,8 +1,6 @@
 from enum import Enum
 from typing import Union, Dict, List, Optional
-from rich import print
-from collections import defaultdict
-
+import logging
 try:
     from typing import Literal
 except ImportError:
@@ -79,7 +77,7 @@ class DbtCatalogNodeColumn(BaseModel):
         values['data_type'] = truncate_before_character(type, '<')
         values['inner_types'] = [item.strip() for match in matches for item in match.split(',')]
         if len(matches) > 0:
-            print(values)
+            logging.debug(f"Found inner types {values['inner_types']} in type {type}")
         return values
 
 
@@ -89,13 +87,6 @@ class DbtCatalogNodeRelationship(BaseModel):
     type: str
     columns: List[DbtCatalogNodeColumn]
     relationships: List[str]  # List of relationships, adjust the type accordingly
-    # parent: Optional[str]  # Added field to store the parent node
-
-    # @validator("type")
-    # def validate_relationship_type(cls, value):
-    #     if "<" not in value and ">" not in value:
-    #         raise ValueError("The 'type' field must contain '<>'")
-    #     return value
 
 class DbtCatalogNode(BaseModel):
     ''' A dbt catalog node '''
