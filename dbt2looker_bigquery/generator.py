@@ -300,12 +300,14 @@ def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[mo
 
         print(f"level {level}, {parent.name}")
         for column in all_columns:
+            # singleton array handling
             if column.name == parent.name:
                 if column.inner_types is not None:
                     if len(column.inner_types) == 1:
                         print(f"column {column.name} is a array child of {parent.name}")
                         structure['children'].append({column.name : {'column' : column, 'children' : []}})
 
+            # descendant handling
             elif remove_parts(column.name) == parent.name:
                 print(f"column {column.name} is a direct descendant of {parent.name}")
 
@@ -325,6 +327,7 @@ def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[mo
         return structure
 
     for parent in array_columns:
+        # start with the top level arrays
         if not '.' in parent.name:
             nested_columns[parent.name] = recurse(parent, all_columns)
 
@@ -349,39 +352,91 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     else:
         view_label = "MISSING"
 
-    exclude_names = []
+    def recurse_views(structure, d):
+        view_list = []
+        used_names = []
+
+        for parent, children in structure.items():
+            children_names = []
+
+            for child_strucure in children['children']:
+                for child_name, child_dict in child_strucure.items():
+                    children_names.append(child_name)
+                    if len((child_dict['children'])) > 0:
+                        recursed_view_list, recursed_names = recurse_views(child_strucure, d=d+1)
+                        view_list.extend(recursed_view_list)
+                        used_names.extend(recursed_names)
+            print(f"adding view for {parent} d {d}")
+            view_list.append(
+                {
+                    'name': model.name + "__" + parent.replace('.','__') ,
+                    'label': view_label + " : " + parent.replace("_", " ").title(),
+                    'dimensions': lookml_dimensions_from_model(model, adapter_type, include_names=children_names),
+                    'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, include_names=children_names).get('dimension_groups'),
+                    'sets' : lookml_dimension_groups_from_model(model, adapter_type, include_names=children_names).get('dimension_group_sets'),
+                    'measures': lookml_measures_from_model(model, include_names=children_names),
+                }
+            )
+            used_names.extend(children_names)
+        return view_list, used_names
 
     # this is for handling arrays
     if structure:
-        print(structure)
-        for parent, children in structure.items():
-
-            parent_lookml = [
-                {   
-                    'name': model.name + "__" + parent ,
-                    'label': view_label + " : " + parent.replace("_", " ").title(),
-                    'dimensions': lookml_dimensions_from_model(model, adapter_type, include_names=children),
-                    'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, include_names=children).get('dimension_groups'),
-                    'sets' : lookml_dimension_groups_from_model(model, adapter_type, include_names=children).get('dimension_group_sets'),
-                    'measures': lookml_measures_from_model(model, include_names=children),
-                }
-            ]
-            exclude_names.extend(children)
-            lookml_list.append(parent_lookml)
+        view_list, used_names = recurse_views(structure, 1)
+        print(view_list)
+        lookml_list.append(view_list)
 
     lookml_view = [
         {
             'name': model.name,
             'label': view_label,
             'sql_table_name': model.relation_name,
-            'dimensions': lookml_dimensions_from_model(model, adapter_type, exclude_names=exclude_names),
-            'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, exclude_names=exclude_names).get('dimension_groups'),
-            'sets' : lookml_dimension_groups_from_model(model, adapter_type, exclude_names=exclude_names).get('dimension_group_sets'),
-            'measures': lookml_measures_from_model(model, exclude_names=exclude_names),
+            'dimensions': lookml_dimensions_from_model(model, adapter_type, exclude_names=used_names),
+            'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, exclude_names=used_names).get('dimension_groups'),
+            'sets' : lookml_dimension_groups_from_model(model, adapter_type, exclude_names=used_names).get('dimension_group_sets'),
+            'measures': lookml_measures_from_model(model, exclude_names=used_names),
         }
     ]
 
     lookml_list.append(lookml_view)
+
+    def rael(input_string):
+        ''' replace all but the last period with a replacement string 
+            this is used to create unique names for joins
+        '''
+        sign = '.'
+        replacement = '__'
+        
+        # Splitting input_string into parts separated by sign (period)
+        parts = input_string.split(sign)
+        
+        # If there's more than one part, we need to do replacements.
+        if len(parts) > 1:
+            # Joining all parts except for last with replacement,
+            # and then adding back on final part.
+            output_string = replacement.join(parts[:-1]) + sign + parts[-1]
+            
+            return output_string
+        
+        # If there are no signs at all or just one part,
+        return input_string
+
+    def recurse_joins(structure, parent_name):
+        join_list = []
+        for parent, children in structure.items():
+            for child_strucure in children['children']:
+                for child_name, child_dict in child_strucure.items():
+                    if len((child_dict['children'])) > 0:
+                        recursed_join_list = recurse_joins(child_strucure, child_name)
+                        join_list.extend(recursed_join_list)
+            join_list.append(
+                {
+                    'sql' : f'LEFT JOIN UNNEST(${{{rael(model.name+"."+parent)}}}) AS {model.name}__{parent.replace(".","__")}',
+                    'relationship': 'one_to_many',
+                    'name': model.name + "__" + parent.replace('.','__'),
+                }
+            )
+        return join_list
 
     if len(array_models) > 0:
         lookml_explore = [
@@ -391,15 +446,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
             'hidden': 'yes'
         }
         ]
-        for parent in structure.keys():
-            lookml_explore[0]['joins'].extend([
-                {
-                    'sql' : f'LEFT JOIN UNNEST(${{{model.name}.{parent}}}) AS {model.name}__{parent}',
-                    'relationship': 'one_to_many',
-                    'name': model.name + "__" + parent,
-                }
-                ]
-            )
+        lookml_explore[0]['joins'].extend(recurse_joins(structure, model.name))
         lookml = {
             'explore': lookml_explore,
             'view': lookml_list,
