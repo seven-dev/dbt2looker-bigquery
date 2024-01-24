@@ -139,7 +139,7 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
 
         if include_names:
             table_format_sql = False
-            # print(column)
+            # logging.debug(column)
             if column.inner_types is not None:
                 if len(column.inner_types) == 1:
                     column.data_type = column.inner_types[0]
@@ -151,12 +151,10 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
         if len(exclude_names) > 0:
             # we want to exclude nested data within arrays
             # but we want to retain the array itself
-            if column.name in exclude_names and not (len(column.inner_types) == 1 and column.inner_types is not None):
-                print(f"excluding {column.name}")
-                print(f"inner types {column.inner_types}")
-                print(f"exclude names {exclude_names}")
-                print(f"len(inner_types) {len(column.inner_types)}")
-                continue
+            if column.inner_types is not None:
+                if column.name in exclude_names and not (len(column.inner_types) == 1 and column.inner_types is not None):
+                    logging.debug(f"excluding {column.name}")
+                    continue
 
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_scalar_types:
 
@@ -298,18 +296,18 @@ def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[mo
             'children' : []
         }
 
-        print(f"level {level}, {parent.name}")
+        logging.debug(f"level {level}, {parent.name}")
         for column in all_columns:
             # singleton array handling
             if column.name == parent.name:
                 if column.inner_types is not None:
                     if len(column.inner_types) == 1:
-                        print(f"column {column.name} is a array child of {parent.name}")
+                        logging.debug(f"column {column.name} is a array child of {parent.name}")
                         structure['children'].append({column.name : {'column' : column, 'children' : []}})
 
             # descendant handling
             elif remove_parts(column.name) == parent.name:
-                print(f"column {column.name} is a direct descendant of {parent.name}")
+                logging.debug(f"column {column.name} is a direct descendant of {parent.name}")
 
                 structure['children'].append({column.name : recurse(
                             parent = column,
@@ -317,7 +315,7 @@ def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[mo
                             level=level+1)})                
 
             elif column.name.startswith(parent.name):
-                print(f"column {column.name} is a nested child of {parent.name}")
+                logging.debug(f"column {column.name} is a nested child of {parent.name}")
 
                 structure['children'].append({column.name : recurse(
                             parent = column,
@@ -366,7 +364,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
                         recursed_view_list, recursed_names = recurse_views(child_strucure, d=d+1)
                         view_list.extend(recursed_view_list)
                         used_names.extend(recursed_names)
-            print(f"adding view for {parent} d {d}")
+            logging.debug(f"adding view for {parent} d {d}")
             view_list.append(
                 {
                     'name': model.name + "__" + parent.replace('.','__') ,
@@ -381,9 +379,10 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         return view_list, used_names
 
     # this is for handling arrays
+    used_names = []
     if structure:
         view_list, used_names = recurse_views(structure, 1)
-        print(view_list)
+        logging.debug(view_list)
         lookml_list.append(view_list)
 
     lookml_view = [

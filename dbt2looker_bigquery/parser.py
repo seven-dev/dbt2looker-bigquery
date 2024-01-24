@@ -138,7 +138,7 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
         for column in catalog_nodes[model.unique_id].columns.values():
             if column.name not in model.columns:
                 if column.type[0:5] == 'ARRAY':
-                    logging.info(column.name + " is an array column")
+                    logging.debug(column.name + " is an array column")
                     new_column = models.DbtModelColumn(
                         name=column.name,
                         description="missing column from manifest.json, generated from catalog.json",
