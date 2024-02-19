@@ -88,8 +88,15 @@ models:
       - name: event_id
         description: unique event id for page view
         meta:
+            looker:
+              hidden: True
+              label: event
+              group_label: identifiers
+              value_format_name: id
+              
             looker_measures:
               type: count_distinct
               type: count
 
 ```
+

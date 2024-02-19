@@ -77,7 +77,7 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             timeframes = looker_date_timeframes
         else:
             raise NotImplementedError()
-
+        dimensions = []
         dimension_group = {
             'name': column.lookml_name,
             'type': 'time',
@@ -95,7 +95,28 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             ]
         }
 
-        return dimension_group, dimension_group_set
+        if type == 'date':
+            iso_year = {
+                'name': f'{column.name}_iso_year',
+                'type': 'number',
+                'sql': f'Extract(isoyear from ${{TABLE}}.{column.name})',
+                'description': f'iso year for {column.name}',
+                'group_label': f'{column.lookml_name}',
+                'value_format_name': 'id'
+            }
+            iso_week_of_year = {
+                'name': f'{column.name}_iso_week_of_year',
+                'type': 'number',
+                'sql': f'Extract(isoweek from ${{TABLE}}.{column.name})',
+                'description': f'iso year for {column.name}',
+                'group_label': f'{column.lookml_name}',
+                'value_format_name': 'id'
+            }
+            dimensions = [iso_year, iso_week_of_year]
+            dimension_group_set['fields'].extend([f"{column.name}_iso_year", f"{column.name}_iso_week_of_year"])
+
+
+        return dimension_group, dimension_group_set, dimensions
 
 
 def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters, include_names=None, exclude_names=[]):
@@ -118,9 +139,9 @@ def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: mod
                 continue
 
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_date_time_types: 
-            dimension_group, dimension_set = lookml_dimension_group(column, adapter_type, 'time', table_format_sql, model)            
+            dimension_group, dimension_set, _ = lookml_dimension_group(column, adapter_type, 'time', table_format_sql, model)            
         elif map_adapter_type_to_looker(adapter_type, column.data_type) in looker_date_types:
-            dimension_group, dimension_set = lookml_dimension_group(column, adapter_type, 'date', table_format_sql, model)            
+            dimension_group, dimension_set, _ = lookml_dimension_group(column, adapter_type, 'date', table_format_sql, model)            
         else:
             continue
 
@@ -196,6 +217,12 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
 
             is_hidden = False
             dimensions.append(dimension)
+
+        elif map_adapter_type_to_looker(adapter_type, column.data_type) == 'date':
+            # We need to add dimensions for date types that are not handled by dimension groups.
+            # And we need to feed the lkml file with a group of dimensions
+            _, _, dimensions = lookml_dimension_group(column, adapter_type, 'date', table_format_sql, model)
+
     return dimensions
 
 def lookml_measures_from_model(model: models.DbtModel, include_names=None, exclude_names=[]):

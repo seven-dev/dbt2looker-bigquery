@@ -10,7 +10,7 @@ def parse_catalog_nodes(raw_catalog: dict):
 def parse_adapter_type(raw_manifest: dict):
     manifest = models.DbtManifest(**raw_manifest)
     return manifest.metadata.adapter_type
-
+ 
 def tags_match(query_tag: str, model: models.DbtModel) -> bool:
     try:
         return query_tag in model.tags
