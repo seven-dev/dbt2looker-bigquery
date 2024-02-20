@@ -85,8 +85,13 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             'description': column.description,
             'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
             'timeframes': timeframes,
+            'group_label': f'{column.lookml_name.replace("_", " ").title()}',
+
             'convert_tz': convert_tz
         }
+
+        if column.meta.looker.group_label != None:
+            dimension_group['group_label'] = column.meta.looker.group_label
 
         dimension_group_set = {
             'name' : f's_{column.name}',
@@ -96,22 +101,29 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
         }
 
         if type == 'date':
+
             iso_year = {
                 'name': f'{column.name}_iso_year',
                 'type': 'number',
                 'sql': f'Extract(isoyear from ${{TABLE}}.{column.name})',
                 'description': f'iso year for {column.name}',
-                'group_label': f'{column.lookml_name}',
+                'group_label': f'{column.lookml_name.replace("_", " ").title()}',
                 'value_format_name': 'id'
             }
+            if column.meta.looker.group_label != None:
+                iso_year['group_label'] = column.meta.looker.group_label
+
             iso_week_of_year = {
                 'name': f'{column.name}_iso_week_of_year',
                 'type': 'number',
                 'sql': f'Extract(isoweek from ${{TABLE}}.{column.name})',
                 'description': f'iso year for {column.name}',
-                'group_label': f'{column.lookml_name}',
+                'group_label': f'{column.lookml_name.replace("_", " ").title()}',
                 'value_format_name': 'id'
             }
+            if column.meta.looker.group_label != None:
+                iso_week_of_year['group_label'] = column.meta.looker.group_label
+
             dimensions = [iso_year, iso_week_of_year]
             dimension_group_set['fields'].extend([f"{column.name}_iso_year", f"{column.name}_iso_week_of_year"])
 
