@@ -34,6 +34,11 @@ dbt2looker
 dbt2looker --tag prod
 ```
 
+**Generate Looker view files for all exposed models **
+```shell
+dbt2looker --exposed_only
+```
+
 ## Install
 
 **Install from PyPi repository**
@@ -83,8 +88,15 @@ models:
       - name: event_id
         description: unique event id for page view
         meta:
+            looker:
+              hidden: True
+              label: event
+              group_label: identifiers
+              value_format_name: id
+              
             looker_measures:
               type: count_distinct
               type: count
 
 ```
+

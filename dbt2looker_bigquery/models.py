@@ -1,12 +1,14 @@
 from enum import Enum
 from typing import Union, Dict, List, Optional
+import logging
 try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal
 from pydantic import BaseModel, Field, validator, root_validator
-
+import re
 from . import looker_enums
+
 # dbt2looker utility types
 class UnsupportedDbtAdapterError(ValueError):
     code = 'unsupported_dbt_adapter'
@@ -45,9 +47,46 @@ class DbtCatalogNodeMetadata(BaseModel):
 class DbtCatalogNodeColumn(BaseModel):
     ''' A column in a dbt catalog node '''
     type: str
+    data_type: Optional[str] = 'MISSING'
+    inner_types: Optional[list[str]]=[]
     comment: Optional[str]
     index: int
     name: str
+    # child_name: Optional[str]
+    # parent: Optional[str]  # Added field to store the parent node
+    
+    @root_validator(pre=True)
+    def validate_inner_type(cls, values):
+        type = values.get('type')
+        # Check if there is a non-None 'parent' and validate it.
+        pattern = re.compile(r'<(.*?)>')
+        matches = pattern.findall(type)
+
+        def truncate_before_character(string, character):
+            # Find the position of the character in the string.
+            pos = string.find(character)
+            
+            # If found, return everything up to that point.
+            if pos != -1:
+                return string[:pos]
+            
+            # If not found, return the original string.
+            return string
+
+
+        values['data_type'] = truncate_before_character(type, '<')
+        values['inner_types'] = [item.strip() for match in matches for item in match.split(',')]
+        if len(matches) > 0:
+            logging.debug(f"Found inner types {values['inner_types']} in type {type}")
+        return values
+
+
+
+class DbtCatalogNodeRelationship(BaseModel):
+    ''' A model for nodes containing relationships '''
+    type: str
+    columns: List[DbtCatalogNodeColumn]
+    relationships: List[str]  # List of relationships, adjust the type accordingly
 
 class DbtCatalogNode(BaseModel):
     ''' A dbt catalog node '''
@@ -93,22 +132,25 @@ class DbtModelColumnMeta(BaseModel):
 class DbtModelColumn(BaseModel):
     ''' A column in a dbt model '''
     name: str
+    lookml_name: str
     description: Optional[str]
     data_type: Optional[str]
+    inner_types: Optional[list[str]]
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
-    parent_name: Optional[str] = None
 
     # Root validator
     @root_validator(pre=True)
     def set_nested_and_parent_name(cls, values):
         name = values.get('name', '')
+
         # If there's a dot in the name, it's a nested field
         if '.' in name:
-            parent, _, nested_name = name.rpartition('.')
             values['nested'] = True
-            values['parent_name'] = parent
-            values['name'] = nested_name  # Update the name to just the nested field's name
+
+        values['lookml_name'] = name.split('.')[-1]
+        values['description'] = values.get('description', "This field is missing a description.")
+        # If the field is an array, it's a nested field
         return values
 
 class DbtModelMetaLooker(DbtMetaLooker):
@@ -148,7 +190,6 @@ class DbtModel(DbtNode):
                 new_columns[name.lower()] = column.copy(update={'name': column.name.lower()})
         return new_columns
 
-
 class DbtManifestMetadata(BaseModel):
     adapter_type: str
 
@@ -159,7 +200,7 @@ class DbtManifestMetadata(BaseModel):
         except ValueError:
             raise UnsupportedDbtAdapterError(wrong_value=v)
         return v
-    
+
 class DbtManifest(BaseModel):
     nodes: Dict[str, Union[DbtModel, DbtNode]]
     metadata: DbtManifestMetadata
