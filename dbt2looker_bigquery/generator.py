@@ -134,6 +134,8 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             dimensions = [iso_year, iso_week_of_year]
             dimension_group_set['fields'].extend([f"{column.name}_iso_year", f"{column.name}_iso_week_of_year"])
 
+        if not dimensions and type=='date':
+            logging.warn(f"no dimensions for {column.name} {column.data_type} {type} {table_format_sql} {model.name}__{column.name}")
 
         return dimension_group, dimension_group_set, dimensions
 
@@ -237,10 +239,14 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
             is_hidden = False
             dimensions.append(dimension)
 
-        elif map_adapter_type_to_looker(adapter_type, column.data_type) == 'date':
+        if map_adapter_type_to_looker(adapter_type, column.data_type) == 'date':
             # We need to add dimensions for date types that are not handled by dimension groups.
             # And we need to feed the lkml file with a group of dimensions
-            _, _, dimensions = lookml_dimension_group(column, adapter_type, 'date', table_format_sql, model)
+            _, _, dimension_group_dimensions = lookml_dimension_group(column, adapter_type, 'date', table_format_sql, model)
+            if dimension_group_dimensions is None:
+                logging.warning(f"no dimensions for {column.name} {column.data_type} {table_format_sql} {model.name}__{column.name}")
+            else:
+                dimensions.extend(dimension_group_dimensions)
 
     return dimensions
 
