@@ -80,16 +80,17 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
         dimensions = []
         dimension_group = {
             'name': column.lookml_name,
+            'label': column.lookml_name.replace("_date","").replace("_", " ").title(),
             'type': 'time',
             'sql': f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name}__{column.name}',
             'description': column.description,
             'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
             'timeframes': timeframes,
             'group_label': f'{column.lookml_name.replace("_", " ").title()}',
-
             'convert_tz': convert_tz
         }
-
+        if column.meta.looker.label != None:
+            dimension_group['label'] = column.meta.looker.label
         if column.meta.looker.group_label != None:
             dimension_group['group_label'] = column.meta.looker.group_label
 
@@ -104,6 +105,7 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
 
             iso_year = {
                 'name': f'{column.name}_iso_year',
+                'label': f'{column.name.replace("_date","").replace("_"," ").title()} ISO Year',
                 'type': 'number',
                 'sql': f'Extract(isoyear from ${{TABLE}}.{column.name})',
                 'description': f'iso year for {column.name}',
@@ -112,9 +114,12 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             }
             if column.meta.looker.group_label != None:
                 iso_year['group_label'] = column.meta.looker.group_label
+            if column.meta.looker.label != None:
+                iso_year['label'] = f"{column.meta.looker.label} ISO Year"
 
             iso_week_of_year = {
                 'name': f'{column.name}_iso_week_of_year',
+                'label': f'{column.name.replace("_date","").replace("_"," ").title()} ISO Week Of Year',
                 'type': 'number',
                 'sql': f'Extract(isoweek from ${{TABLE}}.{column.name})',
                 'description': f'iso year for {column.name}',
@@ -123,6 +128,8 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             }
             if column.meta.looker.group_label != None:
                 iso_week_of_year['group_label'] = column.meta.looker.group_label
+            if column.meta.looker.label != None:
+                iso_week_of_year['label'] = f"{column.meta.looker.label} ISO Week Of Year"
 
             dimensions = [iso_year, iso_week_of_year]
             dimension_group_set['fields'].extend([f"{column.name}_iso_year", f"{column.name}_iso_week_of_year"])
