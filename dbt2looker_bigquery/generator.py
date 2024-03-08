@@ -28,6 +28,25 @@ LOOKER_DTYPE_MAP = {
     }
 }
 
+LOOKER_BIGQUERY_MEASURE_TYPES = [
+    'count',
+    'count_distinct',
+    'sum',
+    'average',
+    'min',
+    'max',
+    'median',
+    'percentile',
+    'percentile_approx',
+    'stddev',
+    'stddev_pop',
+    'stddev_samp',
+    'variance',
+    'var_pop',
+    'var_samp',
+    'sum_distinct',
+]
+
 looker_date_time_types = ['datetime', 'timestamp']
 looker_date_types = ['date']
 looker_scalar_types = ['number', 'yesno', 'string']
@@ -52,6 +71,25 @@ looker_time_timeframes = [
     'time',
     'time_of_day',
 ]
+
+def validate_sql(sql: str):
+    ''' Validate that a string is a valid Looker SQL expression '''
+    def check_if_has_dollar_syntax(sql):
+        ''' check if the string either has ${TABLE}.example or ${view_name} '''
+        return '${' in sql and '}' in sql
+    
+    def check_expression_has_ending_semicolons(sql):
+        ''' check if the string ends with a semicolon '''
+        return sql.strip().endswith(';;')
+
+    if not check_expression_has_ending_semicolons(sql):
+        sql = sql + ';;'
+    
+    if not check_if_has_dollar_syntax(sql):
+        logging.warn(f"SQL expression {sql} does not contain $TABLE or $view_name")
+        return None
+    else:
+        return sql
 
 def map_adapter_type_to_looker(adapter_type: models.SupportedDbtAdapters, column_type: str):
     if adapter_type == 'bigquery' and column_type:
@@ -293,8 +331,49 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
 
     # allow configuring advanced lookml measures
     if measure.sql != None:
-        m['sql'] = measure.sql
-        m['type'] = 'number'
+        validated_sql = validate_sql(measure.sql)
+        if validated_sql is not None:
+            m['sql'] = validated_sql
+            if measure.type.value != 'number':
+                logging.warn(f"SQL expression {measure.sql} is not a number type measure. It is overwritten to be number since SQL is set.")
+                m['type'] = 'number'
+    
+    if measure.sql_distinct_key != None:
+        validated_sql = validate_sql(measure.sql_distinct_key)
+        if validated_sql is not None:
+            m['sql_distinct_key'] = validated_sql
+        else:
+            logging.warn(f"SQL expression {measure.sql_distinct_key} is not valid. It is not set as sql_distinct_key.")
+
+    if measure.approximate != None:
+        m['approximate'] = measure.approximate
+    
+    if measure.approximate_threshold != None:
+        m['approximate_threshold'] = measure.approximate_threshold
+    
+    if measure.allow_approximate_optimization != None:
+        m['allow_approximate_optimization'] = measure.allow_approximate_optimization
+    
+    if measure.can_filter != None:
+        m['can_filter'] = measure.can_filter
+
+    if measure.tags != None:
+        m['tags'] = measure.tags
+
+    if measure.alias != None:
+        m['alias'] = measure.alias
+    
+    if measure.convert_tz != None:
+        m['convert_tz'] = measure.convert_tz
+
+    if measure.suggestable != None:
+        m['suggestable'] = measure.suggestable
+
+    if measure.precision != None:
+        m['precision'] = measure.precision
+
+    if measure.percentile != None:
+        m['percentile'] = measure.percentile
 
     if measure.group_label != None:
         m['group_label'] = measure.group_label

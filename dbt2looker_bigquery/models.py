@@ -123,6 +123,18 @@ class DbtMetaMeasure(DbtMetaLooker):
     type: looker_enums.LookerMeasureType
     description: Optional[str] = Field(None, alias='description')
     sql: Optional[str] = None
+    approximate: Optional[bool]
+    approximate_threshold: Optional[int]
+    allow_approximate_optimization: Optional[bool]
+    can_filter: Optional[bool]
+    tags: Optional[List[str]]
+    sql_distinct_key: Optional[str]
+    alias: Optional[str]
+    convert_tz: Optional[bool]
+    suggestable: Optional[bool]
+    precision: Optional[int]
+    percentile: Optional[bool]
+
 
 class DbtModelColumnMeta(BaseModel):
     ''' Metadata about a column in a dbt model '''
