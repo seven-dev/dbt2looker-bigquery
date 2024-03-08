@@ -96,7 +96,7 @@ models:
               
             looker_measures:
               - type: count_distinct
-                sql_distinct_key: url
+                sql_distinct_key: ${url}
               - type: count
                 value_format_name: decimal_1
 
