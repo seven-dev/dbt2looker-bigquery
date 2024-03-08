@@ -9,6 +9,18 @@ from pydantic import BaseModel, Field, validator, root_validator
 import re
 from . import looker_enums
 
+def yes_no_validator(value: Union[bool, str]):
+    ''' Convert booleans or strings to lookml yes/no syntax'''
+    if isinstance(value, bool):
+        return 'yes' if value else 'no'
+    elif value.lower() in ['yes', 'no']:
+        return value.lower()
+    elif value.lower() in ['true', 'false']:
+        return 'yes' if value.lower() == 'true' else 'no'
+    else:
+        logging.warn(f'Value must be "yes", "no", or a boolean. Got {value}')
+        return None
+
 # dbt2looker utility types
 class UnsupportedDbtAdapterError(ValueError):
     code = 'unsupported_dbt_adapter'
@@ -112,38 +124,45 @@ class LookViewFile(BaseModel):
 
 class DbtMetaLooker(BaseModel):
     ''' Looker-specific metadata for a dbt model '''
-    hidden: Optional[bool] = None
-    label: Optional[str] = None
-    group_label: Optional[str] = None
-    value_format_name: Optional[looker_enums.LookerValueFormatName] = None
-    timeframes: Optional[List[looker_enums.LookerTimeFrame]] = None
+    hidden: Optional[bool] = Field(default=None)
+    label: Optional[str] = Field(default=None)
+    group_label: Optional[str] = Field(default=None)
+    value_format_name: Optional[looker_enums.LookerValueFormatName] = Field(default=None)
+    timeframes: Optional[List[looker_enums.LookerTimeFrame]] = Field(default=None)
 
 class DbtMetaMeasure(DbtMetaLooker):
     ''' A measure defined in a dbt model'''
-    type: looker_enums.LookerMeasureType
-    description: Optional[str] = Field(None, alias='description')
-    sql: Optional[str] = None
-    approximate: Optional[bool]
-    approximate_threshold: Optional[int]
-    allow_approximate_optimization: Optional[bool]
-    can_filter: Optional[bool]
-    tags: Optional[List[str]]
-    sql_distinct_key: Optional[str]
-    alias: Optional[str]
-    convert_tz: Optional[bool]
-    suggestable: Optional[bool]
-    precision: Optional[int]
-    percentile: Optional[bool]
+    type: looker_enums.LookerMeasureType = Field(default=None)
+    description: Optional[str] = Field(default=None, alias='description')
+    sql: Optional[str] = Field(default=None)
+    approximate: Optional[Union[bool, str]] = Field(default=None)
+    approximate_threshold: Optional[int] = Field(default=None)
+    allow_approximate_optimization: Optional[Union[bool, str]] = Field(default=None)
+    can_filter: Optional[Union[bool, str]] = Field(default=None)
+    tags: Optional[List[str]] = Field(default=None)
+    sql_distinct_key: Optional[str] = Field(default=None)
+    alias: Optional[str] = Field(default=None)
+    convert_tz: Optional[Union[bool, str]] = Field(default=None)
+    suggestable: Optional[Union[bool, str]] = Field(default=None)
+    precision: Optional[int] = Field(default=None)
+    percentile: Optional[Union[bool, str]] = Field(default=None)
 
+    _normalize_approximate = validator('approximate', allow_reuse=True)(yes_no_validator)
+    _normalize_allow_approximate_optimization = validator('allow_approximate_optimization', allow_reuse=True)(yes_no_validator)
+    _normalize_can_filter = validator('can_filter', allow_reuse=True)(yes_no_validator)
+    _normalize_convert_tz = validator('convert_tz', allow_reuse=True)(yes_no_validator)
+    _normalize_suggestable = validator('suggestable', allow_reuse=True)(yes_no_validator)
+    _normalize_percentile = validator('percentile', allow_reuse=True)(yes_no_validator)
 
 class DbtModelColumnMeta(BaseModel):
     ''' Metadata about a column in a dbt model '''
-    looker: Optional[DbtMetaLooker] = DbtMetaLooker()
+    looker: Optional[DbtMetaLooker] = DbtMetaLooker() 
     looker_measures: Optional[List[DbtMetaMeasure]] = []
 
 class DbtModelColumn(BaseModel):
     ''' A column in a dbt model '''
     name: str
+    lookml_long_name: str
     lookml_name: str
     description: Optional[str]
     data_type: Optional[str]
@@ -159,7 +178,7 @@ class DbtModelColumn(BaseModel):
         # If there's a dot in the name, it's a nested field
         if '.' in name:
             values['nested'] = True
-
+        values['lookml_long_name'] = name.replace('.', '__')
         values['lookml_name'] = name.split('.')[-1]
         values['description'] = values.get('description', "This field is missing a description.")
         # If the field is an array, it's a nested field

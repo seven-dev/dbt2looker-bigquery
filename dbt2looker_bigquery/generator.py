@@ -82,9 +82,6 @@ def validate_sql(sql: str):
         ''' check if the string ends with a semicolon '''
         return sql.strip().endswith(';;')
 
-    if not check_expression_has_ending_semicolons(sql):
-        sql = sql + ';;'
-    
     if not check_if_has_dollar_syntax(sql):
         logging.warn(f"SQL expression {sql} does not contain $TABLE or $view_name")
         return None
@@ -102,8 +99,6 @@ def map_adapter_type_to_looker(adapter_type: models.SupportedDbtAdapters, column
 
 def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters, type: str, table_format_sql=True, model=None):
 
-    table_format_sql = True
-    
     if map_adapter_type_to_looker(adapter_type, column.data_type) is None:
         raise NotImplementedError()
     else:
@@ -239,7 +234,7 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_scalar_types:
 
             dimension = {
-                'name': column.lookml_name,
+                'name': column.lookml_long_name if table_format_sql else column.lookml_name,
                 'type': map_adapter_type_to_looker(adapter_type, column.data_type),
                 'sql': f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name}__{column.name}',
                 'description': column.description,
@@ -261,19 +256,20 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
                 is_hidden = True
                 dimension['value_format_name'] = 'id'
 
-            if column.meta.looker.group_label != None:
-                dimension['group_label'] = column.meta.looker.group_label
-            if column.meta.looker.label  != None:
-                dimension['label'] = column.meta.looker.label
+            if column.meta.looker is not None:
+                if column.meta.looker.group_label != None:
+                    dimension['group_label'] = column.meta.looker.group_label
+                if column.meta.looker.label  != None:
+                    dimension['label'] = column.meta.looker.label
 
-            if column.meta.looker.hidden != None:
-                dimension['hidden'] = 'yes' if column.meta.looker.hidden == True else 'no'
-            elif is_hidden:
-                dimension['hidden'] = 'yes'
+                if column.meta.looker.hidden != None:
+                    dimension['hidden'] = 'yes' if column.meta.looker.hidden == True else 'no'
+                elif is_hidden:
+                    dimension['hidden'] = 'yes'
 
-            if column.meta.looker.value_format_name != None:
-                dimension['value_format_name'] = column.meta.looker.value_format_name.value
-
+                if column.meta.looker.value_format_name != None:
+                    dimension['value_format_name'] = column.meta.looker.value_format_name.value
+        
             is_hidden = False
             dimensions.append(dimension)
 
@@ -316,6 +312,10 @@ def lookml_measures_from_model(model: models.DbtModel, include_names=None, exclu
 
 def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure, table_format_sql, model):
     
+    if measure.type.value not in LOOKER_BIGQUERY_MEASURE_TYPES:
+        logging.warning(f"Measure type {measure.type.value} not supported for conversion to looker. No measure will be created.")
+        return None
+    
     m = {
         'name': f'm_{measure.type.value}_{column.name}',
         'type': measure.type.value,
@@ -326,8 +326,9 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
     # inherit the value format, or overwrite it
     if measure.value_format_name != None:
         m['value_format_name'] = measure.value_format_name.value
-    elif column.meta.looker.value_format_name != None:
-        m['value_format_name'] = column.meta.looker.value_format_name.value        
+    elif column.meta.looker != None:
+        if column.meta.looker.value_format_name != None:
+            m['value_format_name'] = column.meta.looker.value_format_name.value        
 
     # allow configuring advanced lookml measures
     if measure.sql != None:
@@ -377,10 +378,17 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
 
     if measure.group_label != None:
         m['group_label'] = measure.group_label
+
     if measure.label != None:
         m['label'] = measure.label
+
     if measure.hidden != None:
         m['hidden'] = measure.hidden.value
+
+    if measure.description != None:
+        m['description'] = measure.description
+
+    print(m)
     return m
 
 
@@ -402,19 +410,6 @@ def extract_array_models(columns: list[models.DbtModelColumn])->list[models.DbtM
 def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[models.DbtModelColumn]):
     nested_columns = {}
 
-    # def find_closest_parent(model : models.DbtModelColumn, array_models:list[models.DbtModelColumn]):
-    #     """
-    #     Find the closest parent from the parent_list for the target string.
-    #     """
-    #     for array in array_models:
-    #         if len(array.inner_types) == 1:
-    #             if model.name == array.name:
-    #                 return array
-    #         else:
-    #             if model.name.startswith(array.name) and model.name != array.name:
-    #                 return array
-    #     return None
-    
     def remove_parts(input_string):
         parts = input_string.split('.')
         modified_parts = parts[:-1]
@@ -589,6 +584,6 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     try: 
         contents = lkml.dump(lookml)
     except TypeError as e:
-        logging.warning(f"TYPEERROR {e}")
+        logging.error(f"TYPEERROR {e}")
     filename = f'{model.name}.view.lkml'
     return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)
