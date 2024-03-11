@@ -388,7 +388,7 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
     if measure.description != None:
         m['description'] = measure.description
 
-    print(m)
+    logging.debug(f"measure created: {m}" )
     return m
 
 
