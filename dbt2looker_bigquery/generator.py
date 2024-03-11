@@ -82,6 +82,10 @@ def validate_sql(sql: str):
         ''' check if the string ends with a semicolon '''
         return sql.strip().endswith(';;')
 
+    if check_expression_has_ending_semicolons(sql):
+        logging.warn(f"SQL expression {sql} ends with semicolons. It is removed and added by lkml.")
+        sql = sql.strip().rstrip(';').rstrip(';')
+
     if not check_if_has_dollar_syntax(sql):
         logging.warn(f"SQL expression {sql} does not contain $TABLE or $view_name")
         return None
