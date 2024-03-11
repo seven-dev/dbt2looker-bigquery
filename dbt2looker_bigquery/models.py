@@ -178,8 +178,9 @@ class DbtModelColumn(BaseModel):
         # If there's a dot in the name, it's a nested field
         if '.' in name:
             values['nested'] = True
-        values['lookml_long_name'] = name.replace('.', '__')
-        values['lookml_name'] = name.split('.')[-1]
+        values['name'] = name.lower()
+        values['lookml_long_name'] = name.replace('.', '__').lower()
+        values['lookml_name'] = name.split('.')[-1].lower()
         values['description'] = values.get('description', "This field is missing a description.")
         # If the field is an array, it's a nested field
         return values
