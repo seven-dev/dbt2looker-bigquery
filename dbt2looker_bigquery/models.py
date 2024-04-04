@@ -127,8 +127,8 @@ class DbtMetaLooker(BaseModel):
     hidden: Optional[bool] = Field(default=None)
     label: Optional[str] = Field(default=None)
     group_label: Optional[str] = Field(default=None)
-    value_format_name: Optional[looker_enums.LookerValueFormatName] = Field(default=None)
-    timeframes: Optional[List[looker_enums.LookerTimeFrame]] = Field(default=None)
+    value_format_name: Optional[looker_enums.LookerValueFormatName] = Field(default=None) #TODO - make validator not discard as much if a invalid value is given
+    timeframes: Optional[List[looker_enums.LookerTimeFrame]] = Field(default=None) #TODO - make validator not discard as much if a invalid value is given
 
 class DbtMetaMeasure(DbtMetaLooker):
     ''' A measure defined in a dbt model'''
