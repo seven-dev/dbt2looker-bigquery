@@ -28,6 +28,25 @@ LOOKER_DTYPE_MAP = {
     }
 }
 
+LOOKER_BIGQUERY_MEASURE_TYPES = [
+    'count',
+    'count_distinct',
+    'sum',
+    'average',
+    'min',
+    'max',
+    'median',
+    'percentile',
+    'percentile_approx',
+    'stddev',
+    'stddev_pop',
+    'stddev_samp',
+    'variance',
+    'var_pop',
+    'var_samp',
+    'sum_distinct',
+]
+
 looker_date_time_types = ['datetime', 'timestamp']
 looker_date_types = ['date']
 looker_scalar_types = ['number', 'yesno', 'string']
@@ -53,6 +72,26 @@ looker_time_timeframes = [
     'time_of_day',
 ]
 
+def validate_sql(sql: str):
+    ''' Validate that a string is a valid Looker SQL expression '''
+    def check_if_has_dollar_syntax(sql):
+        ''' check if the string either has ${TABLE}.example or ${view_name} '''
+        return '${' in sql and '}' in sql
+    
+    def check_expression_has_ending_semicolons(sql):
+        ''' check if the string ends with a semicolon '''
+        return sql.strip().endswith(';;')
+
+    if check_expression_has_ending_semicolons(sql):
+        logging.warn(f"SQL expression {sql} ends with semicolons. It is removed and added by lkml.")
+        sql = sql.strip().rstrip(';').rstrip(';')
+
+    if not check_if_has_dollar_syntax(sql):
+        logging.warn(f"SQL expression {sql} does not contain $TABLE or $view_name")
+        return None
+    else:
+        return sql
+
 def map_adapter_type_to_looker(adapter_type: models.SupportedDbtAdapters, column_type: str):
     if adapter_type == 'bigquery' and column_type:
         column_type = column_type.split('<')[0]
@@ -64,8 +103,6 @@ def map_adapter_type_to_looker(adapter_type: models.SupportedDbtAdapters, column
 
 def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters, type: str, table_format_sql=True, model=None):
 
-    table_format_sql = True
-    
     if map_adapter_type_to_looker(adapter_type, column.data_type) is None:
         raise NotImplementedError()
     else:
@@ -201,7 +238,7 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
         if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_scalar_types:
 
             dimension = {
-                'name': column.lookml_name,
+                'name': column.lookml_long_name if table_format_sql else column.lookml_name,
                 'type': map_adapter_type_to_looker(adapter_type, column.data_type),
                 'sql': f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name}__{column.name}',
                 'description': column.description,
@@ -223,19 +260,20 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
                 is_hidden = True
                 dimension['value_format_name'] = 'id'
 
-            if column.meta.looker.group_label != None:
-                dimension['group_label'] = column.meta.looker.group_label
-            if column.meta.looker.label  != None:
-                dimension['label'] = column.meta.looker.label
+            if column.meta.looker is not None:
+                if column.meta.looker.group_label != None:
+                    dimension['group_label'] = column.meta.looker.group_label
+                if column.meta.looker.label  != None:
+                    dimension['label'] = column.meta.looker.label
 
-            if column.meta.looker.hidden != None:
-                dimension['hidden'] = 'yes' if column.meta.looker.hidden == True else 'no'
-            elif is_hidden:
-                dimension['hidden'] = 'yes'
+                if column.meta.looker.hidden != None:
+                    dimension['hidden'] = 'yes' if column.meta.looker.hidden == True else 'no'
+                elif is_hidden:
+                    dimension['hidden'] = 'yes'
 
-            if column.meta.looker.value_format_name != None:
-                dimension['value_format_name'] = column.meta.looker.value_format_name.value
-
+                if column.meta.looker.value_format_name != None:
+                    dimension['value_format_name'] = column.meta.looker.value_format_name.value
+        
             is_hidden = False
             dimensions.append(dimension)
 
@@ -250,7 +288,7 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
 
     return dimensions
 
-def lookml_measures_from_model(model: models.DbtModel, include_names=None, exclude_names=[]):
+def lookml_measures_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters, include_names=None, exclude_names=[]):
     # Initialize an empty list to hold all lookml measures.
     lookml_measures = []
     table_format_sql = True
@@ -267,16 +305,22 @@ def lookml_measures_from_model(model: models.DbtModel, include_names=None, exclu
             if column.name in exclude_names:
                 continue
 
-        if hasattr(column.meta, 'looker_measures'):
-            # For each measure found in the combined dictionary, create a lookml_measure.
-            for measure in column.meta.looker_measures:
-                # Call the lookml_measure function and append the result to the list.
-                lookml_measures.append(lookml_measure(column, measure, table_format_sql, model))
+        if map_adapter_type_to_looker(adapter_type, column.data_type) in looker_scalar_types:
+
+            if hasattr(column.meta, 'looker_measures'):
+                # For each measure found in the combined dictionary, create a lookml_measure.
+                for measure in column.meta.looker_measures:
+                    # Call the lookml_measure function and append the result to the list.
+                    lookml_measures.append(lookml_measure(column, measure, table_format_sql, model))
 
     # Return the list of lookml measures.
     return lookml_measures
 
 def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure, table_format_sql, model):
+    
+    if measure.type.value not in LOOKER_BIGQUERY_MEASURE_TYPES:
+        logging.warning(f"Measure type {measure.type.value} not supported for conversion to looker. No measure will be created.")
+        return None
     
     m = {
         'name': f'm_{measure.type.value}_{column.name}',
@@ -288,20 +332,69 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
     # inherit the value format, or overwrite it
     if measure.value_format_name != None:
         m['value_format_name'] = measure.value_format_name.value
-    elif column.meta.looker.value_format_name != None:
-        m['value_format_name'] = column.meta.looker.value_format_name.value        
+    elif column.meta.looker != None:
+        if column.meta.looker.value_format_name != None:
+            m['value_format_name'] = column.meta.looker.value_format_name.value        
 
     # allow configuring advanced lookml measures
     if measure.sql != None:
-        m['sql'] = measure.sql
-        m['type'] = 'number'
+        validated_sql = validate_sql(measure.sql)
+        if validated_sql is not None:
+            m['sql'] = validated_sql
+            if measure.type.value != 'number':
+                logging.warn(f"SQL expression {measure.sql} is not a number type measure. It is overwritten to be number since SQL is set.")
+                m['type'] = 'number'
+    
+    if measure.sql_distinct_key != None:
+        validated_sql = validate_sql(measure.sql_distinct_key)
+        if validated_sql is not None:
+            m['sql_distinct_key'] = validated_sql
+        else:
+            logging.warn(f"SQL expression {measure.sql_distinct_key} is not valid. It is not set as sql_distinct_key.")
+
+    if measure.approximate != None:
+        m['approximate'] = measure.approximate
+    
+    if measure.approximate_threshold != None:
+        m['approximate_threshold'] = measure.approximate_threshold
+    
+    if measure.allow_approximate_optimization != None:
+        m['allow_approximate_optimization'] = measure.allow_approximate_optimization
+    
+    if measure.can_filter != None:
+        m['can_filter'] = measure.can_filter
+
+    if measure.tags != None:
+        m['tags'] = measure.tags
+
+    if measure.alias != None:
+        m['alias'] = measure.alias
+    
+    if measure.convert_tz != None:
+        m['convert_tz'] = measure.convert_tz
+
+    if measure.suggestable != None:
+        m['suggestable'] = measure.suggestable
+
+    if measure.precision != None:
+        m['precision'] = measure.precision
+
+    if measure.percentile != None:
+        m['percentile'] = measure.percentile
 
     if measure.group_label != None:
         m['group_label'] = measure.group_label
+
     if measure.label != None:
         m['label'] = measure.label
+
     if measure.hidden != None:
         m['hidden'] = measure.hidden.value
+
+    if measure.description != None:
+        m['description'] = measure.description
+
+    logging.debug(f"measure created: {m}" )
     return m
 
 
@@ -323,19 +416,6 @@ def extract_array_models(columns: list[models.DbtModelColumn])->list[models.DbtM
 def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[models.DbtModelColumn]):
     nested_columns = {}
 
-    # def find_closest_parent(model : models.DbtModelColumn, array_models:list[models.DbtModelColumn]):
-    #     """
-    #     Find the closest parent from the parent_list for the target string.
-    #     """
-    #     for array in array_models:
-    #         if len(array.inner_types) == 1:
-    #             if model.name == array.name:
-    #                 return array
-    #         else:
-    #             if model.name.startswith(array.name) and model.name != array.name:
-    #                 return array
-    #     return None
-    
     def remove_parts(input_string):
         parts = input_string.split('.')
         modified_parts = parts[:-1]
@@ -394,13 +474,18 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     lookml = {}
     lookml_list = []
 
+    view_label = None
     # Add 'label' only if it exists
     if hasattr(model.meta.looker, 'label'):
-        view_label = model.meta.looker.label
+        if model.meta.looker.label is not None:
+            view_label = model.meta.looker.label
+        elif hasattr(model, 'name'):
+            view_label = model.name.replace("_", " ").title()
     elif hasattr(model, 'name'):
-        view_label = model.name.replace("_", " ").title()
-    else:
-        view_label = "MISSING"
+                view_label = model.name.replace("_", " ").title()
+
+    if view_label is None:
+        logging.warn(f"This model has no name: {model.name}")
 
     def recurse_views(structure, d):
         view_list = []
@@ -424,7 +509,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
                     'dimensions': lookml_dimensions_from_model(model, adapter_type, include_names=children_names),
                     'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, include_names=children_names).get('dimension_groups'),
                     'sets' : lookml_dimension_groups_from_model(model, adapter_type, include_names=children_names).get('dimension_group_sets'),
-                    'measures': lookml_measures_from_model(model, include_names=children_names),
+                    'measures': lookml_measures_from_model(model, adapter_type, include_names=children_names),
                 }
             )
             used_names.extend(children_names)
@@ -445,7 +530,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
             'dimensions': lookml_dimensions_from_model(model, adapter_type, exclude_names=used_names),
             'dimension_groups': lookml_dimension_groups_from_model(model, adapter_type, exclude_names=used_names).get('dimension_groups'),
             'sets' : lookml_dimension_groups_from_model(model, adapter_type, exclude_names=used_names).get('dimension_group_sets'),
-            'measures': lookml_measures_from_model(model, exclude_names=used_names),
+            'measures': lookml_measures_from_model(model, adapter_type, exclude_names=used_names),
         }
     ]
 
@@ -490,9 +575,10 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         return join_list
 
     if len(array_models) > 0:
+        
         lookml_explore = [
         {
-            'name': model.name,
+            'name': model.name, # to avoid name conflicts
             'joins': [],
             'hidden': 'yes'
         }
@@ -509,7 +595,13 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
 
     try: 
         contents = lkml.dump(lookml)
+        model_failed = False
     except TypeError as e:
-        logging.warning(f"TYPEERROR {e}")
-    filename = f'{model.name}.view.lkml'
-    return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)
+        logging.error(f"Error in this model: {model.name} TYPEERROR when dumping lookml: {e}")
+        model_failed = True
+
+    if model_failed:
+        return None
+    else:
+        filename = f'{model.name}.view.lkml'
+        return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)

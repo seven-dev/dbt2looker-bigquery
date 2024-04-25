@@ -95,8 +95,10 @@ models:
               value_format_name: id
               
             looker_measures:
-              type: count_distinct
-              type: count
+              - type: count_distinct
+                sql_distinct_key: ${url}
+              - type: count
+                value_format_name: decimal_1
 
 ```
 
