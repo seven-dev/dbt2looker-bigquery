@@ -474,13 +474,18 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     lookml = {}
     lookml_list = []
 
+    view_label = None
     # Add 'label' only if it exists
     if hasattr(model.meta.looker, 'label'):
-        view_label = model.meta.looker.label
+        if model.meta.looker.label is not None:
+            view_label = model.meta.looker.label
+        elif hasattr(model, 'name'):
+            view_label = model.name.replace("_", " ").title()
     elif hasattr(model, 'name'):
-        view_label = model.name.replace("_", " ").title()
-    else:
-        view_label = "MISSING"
+                view_label = model.name.replace("_", " ").title()
+
+    if view_label is None:
+        logging.warn(f"This model has no name: {model.name}")
 
     def recurse_views(structure, d):
         view_list = []
@@ -590,7 +595,13 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
 
     try: 
         contents = lkml.dump(lookml)
+        model_failed = False
     except TypeError as e:
-        logging.error(f"TYPEERROR {e}")
-    filename = f'{model.name}.view.lkml'
-    return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)
+        logging.error(f"Error in this model: {model.name} TYPEERROR when dumping lookml: {e}")
+        model_failed = True
+
+    if model_failed:
+        return None
+    else:
+        filename = f'{model.name}.view.lkml'
+        return models.LookViewFile(filename=filename, contents=contents, schema=model.db_schema)

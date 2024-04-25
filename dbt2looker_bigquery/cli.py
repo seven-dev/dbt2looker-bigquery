@@ -108,6 +108,7 @@ def run():
     lookml_views = [
         generator.lookml_view_from_dbt_model(model, adapter_type)
         for model in typed_dbt_models
+        if generator.lookml_view_from_dbt_model(model, adapter_type) is not None
     ]
     pathlib.Path(os.path.join(args.output_dir, 'views')).mkdir(exist_ok=True, parents=True)
     for view in lookml_views:
