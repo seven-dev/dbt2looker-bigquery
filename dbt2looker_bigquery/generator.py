@@ -109,14 +109,16 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
         if type == 'time':
             convert_tz = 'yes'
             timeframes = looker_time_timeframes
+            column_name_adjusted = column.name.replace("_date","")
         elif type == 'date':
             convert_tz = 'no'
             timeframes = looker_date_timeframes
+            column_name_adjusted = column.name.replace("_date","")
         else:
             raise NotImplementedError()
         dimensions = []
         dimension_group = {
-            'name': column.lookml_name,
+            'name': column_name_adjusted,
             'label': column.lookml_name.replace("_date","").replace("_", " ").title(),
             'type': 'time',
             'sql': f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name}__{column.name}',
@@ -132,9 +134,9 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             dimension_group['group_label'] = column.meta.looker.group_label
 
         dimension_group_set = {
-            'name' : f's_{column.name}',
+            'name' : f's_{column_name_adjusted}',
             'fields': [
-                f"{column.name}_{looker_time_timeframe}" for looker_time_timeframe in timeframes
+                f"{column_name_adjusted}_{looker_time_timeframe}" for looker_time_timeframe in timeframes
             ]
         }
 
