@@ -1,6 +1,5 @@
 import lkml
 from . import models
-from rich import print
 import logging
 
 class NotImplementedError(Exception):

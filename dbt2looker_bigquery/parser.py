@@ -1,7 +1,6 @@
 import logging
 from typing import Dict, Optional, List
 from . import models as models
-from rich import print
 
 def parse_catalog_nodes(raw_catalog: dict):
     catalog = models.DbtCatalog(**raw_catalog)
@@ -26,7 +25,7 @@ def parse_models(raw_manifest: dict, tag=None, exposures_only=False, select_mode
 
     for node in manifest.nodes.values():
         if node.resource_type == 'model':
-            logging.debug('Found model %s', node)
+            logging.warning('Found model %s', node)
 
     all_models: List[models.DbtModel] = [
         node

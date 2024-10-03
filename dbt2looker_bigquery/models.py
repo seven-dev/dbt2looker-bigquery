@@ -1,11 +1,13 @@
 from enum import Enum
 from typing import Union, Dict, List, Optional
 import logging
+from pydantic import field_validator, model_validator
+
 try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator
 import re
 from . import looker_enums
 
@@ -38,14 +40,14 @@ class DbtNode(BaseModel):
 class DbtExposureRef(BaseModel):
     ''' A reference in a dbt exposure '''
     name: str
-    package: Optional[str]
-    version: Optional[str]
+    package: Optional[str] = None
+    version: Optional[str] = None
 
 class DbtExposure(DbtNode):
     ''' A dbt exposure '''
     name: str
-    description: Optional[str]
-    url: Optional[str]
+    description: Optional[str] = None
+    url: Optional[str] = None
     refs: List[DbtExposureRef]
 
 class DbtCatalogNodeMetadata(BaseModel):
@@ -53,21 +55,22 @@ class DbtCatalogNodeMetadata(BaseModel):
     type: str
     db_schema: str = Field(..., alias='schema')
     name: str
-    comment: Optional[str]
-    owner: Optional[str]
+    comment: Optional[str] = None
+    owner: Optional[str] = None
 
 class DbtCatalogNodeColumn(BaseModel):
     ''' A column in a dbt catalog node '''
     type: str
     data_type: Optional[str] = 'MISSING'
     inner_types: Optional[list[str]]=[]
-    comment: Optional[str]
+    comment: Optional[str] = None
     index: int
     name: str
     # child_name: Optional[str]
     # parent: Optional[str]  # Added field to store the parent node
     
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_inner_type(cls, values):
         type = values.get('type')
         # Check if there is a non-None 'parent' and validate it.
@@ -105,7 +108,8 @@ class DbtCatalogNode(BaseModel):
     metadata: DbtCatalogNodeMetadata
     columns: Dict[str, DbtCatalogNodeColumn]
 
-    @validator('columns')
+    @field_validator('columns')
+    @classmethod
     def case_insensitive_column_names(cls, v: Dict[str, DbtCatalogNodeColumn]):
         return {
             name.lower(): column.copy(update={'name': column.name.lower()})
@@ -164,14 +168,15 @@ class DbtModelColumn(BaseModel):
     name: str
     lookml_long_name: str
     lookml_name: str
-    description: Optional[str]
-    data_type: Optional[str]
-    inner_types: Optional[list[str]]
+    description: Optional[str] = None
+    data_type: Optional[str] = None
+    inner_types: Optional[list[str]] = None
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
 
     # Root validator
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def set_nested_and_parent_name(cls, values):
         name = values.get('name', '')
 
@@ -204,7 +209,8 @@ class DbtModel(DbtNode):
     tags: List[str]
     meta: DbtModelMeta
 
-    @validator('columns')
+    @field_validator('columns')
+    @classmethod
     def case_insensitive_column_names(cls, v: Dict[str, DbtModelColumn]):
         new_columns = {}
         for name, column in v.items():
@@ -225,7 +231,8 @@ class DbtModel(DbtNode):
 class DbtManifestMetadata(BaseModel):
     adapter_type: str
 
-    @validator('adapter_type')
+    @field_validator('adapter_type')
+    @classmethod
     def adapter_must_be_supported(cls, v):
         try:
             SupportedDbtAdapters(v)
