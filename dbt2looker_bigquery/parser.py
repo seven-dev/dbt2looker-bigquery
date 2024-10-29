@@ -9,7 +9,7 @@ def parse_catalog_nodes(raw_catalog: dict):
 def parse_adapter_type(raw_manifest: dict):
     manifest = models.DbtManifest(**raw_manifest)
     return manifest.metadata.adapter_type
- 
+
 def tags_match(query_tag: str, model: models.DbtModel) -> bool:
     try:
         return query_tag in model.tags
@@ -121,8 +121,8 @@ def parse_typed_models(raw_manifest: dict, raw_catalog: dict, tag: Optional[str]
 
     # Update dbt models with data types from catalog
     dbt_typed_models = [  
-        model.copy(update={'columns': {
-            column.name: column.copy(update={
+        model.model_copy(update={'columns': {
+            column.name: column.model_copy()(update={
                 'data_type': get_column_type_from_catalog(catalog_nodes, model.unique_id, column.name),
                 'inner_types': get_column_inner_type_from_catalog(catalog_nodes, model.unique_id, column.name),
             })

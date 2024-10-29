@@ -20,7 +20,7 @@ def yes_no_validator(value: Union[bool, str]):
     elif value.lower() in ['true', 'false']:
         return 'yes' if value.lower() == 'true' else 'no'
     else:
-        logging.warn(f'Value must be "yes", "no", or a boolean. Got {value}')
+        logging.warning(f'Value must be "yes", "no", or a boolean. Got {value}')
         return None
 
 # dbt2looker utility types
@@ -95,8 +95,6 @@ class DbtCatalogNodeColumn(BaseModel):
             logging.debug(f"Found inner types {values['inner_types']} in type {type}")
         return values
 
-
-
 class DbtCatalogNodeRelationship(BaseModel):
     ''' A model for nodes containing relationships '''
     type: str
@@ -150,13 +148,10 @@ class DbtMetaMeasure(DbtMetaLooker):
     suggestable: Optional[Union[bool, str]] = Field(default=None)
     precision: Optional[int] = Field(default=None)
     percentile: Optional[Union[bool, str]] = Field(default=None)
-
-    _normalize_approximate = validator('approximate', allow_reuse=True)(yes_no_validator)
-    _normalize_allow_approximate_optimization = validator('allow_approximate_optimization', allow_reuse=True)(yes_no_validator)
-    _normalize_can_filter = validator('can_filter', allow_reuse=True)(yes_no_validator)
-    _normalize_convert_tz = validator('convert_tz', allow_reuse=True)(yes_no_validator)
-    _normalize_suggestable = validator('suggestable', allow_reuse=True)(yes_no_validator)
-    _normalize_percentile = validator('percentile', allow_reuse=True)(yes_no_validator)
+    
+    @field_validator('approximate', 'allow_approximate_optimization', 'can_filter', 'convert_tz', 'suggestable', 'percentile', mode='before')
+    def validate_yes_no_fields(cls, v):
+        return yes_no_validator(v)
 
 class DbtModelColumnMeta(BaseModel):
     ''' Metadata about a column in a dbt model '''
@@ -193,6 +188,11 @@ class DbtModelColumn(BaseModel):
 class DbtModelMetaLooker(DbtMetaLooker):
     ''' Looker-specific metadata about a dbt model '''
     label: Optional[str] = None
+    hidden: Optional[Union[bool, str]] = Field(default=None)
+
+    @field_validator('hidden', mode='before')
+    def validate_yes_no_fields(cls, v):
+        return yes_no_validator(v)
 
 class DbtModelMeta(BaseModel):
     ''' Metadata about a dbt model '''

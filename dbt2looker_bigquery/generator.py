@@ -73,6 +73,7 @@ looker_time_timeframes = [
 
 def validate_sql(sql: str):
     ''' Validate that a string is a valid Looker SQL expression '''
+
     def check_if_has_dollar_syntax(sql):
         ''' check if the string either has ${TABLE}.example or ${view_name} '''
         return '${' in sql and '}' in sql
@@ -82,11 +83,11 @@ def validate_sql(sql: str):
         return sql.strip().endswith(';;')
 
     if check_expression_has_ending_semicolons(sql):
-        logging.warn(f"SQL expression {sql} ends with semicolons. It is removed and added by lkml.")
+        logging.warning(f"SQL expression {sql} ends with semicolons. It is removed and added by lkml.")
         sql = sql.strip().rstrip(';').rstrip(';')
 
     if not check_if_has_dollar_syntax(sql):
-        logging.warn(f"SQL expression {sql} does not contain $TABLE or $view_name")
+        logging.warning(f"SQL expression {sql} does not contain $TABLE or $view_name")
         return None
     else:
         return sql
@@ -98,6 +99,7 @@ def map_adapter_type_to_looker(adapter_type: models.SupportedDbtAdapters, column
     looker_type = LOOKER_DTYPE_MAP[adapter_type].get(column_type)
     if (column_type is not None) and (looker_type is None):
         logging.warning(f'Column type {column_type} not supported for conversion from {adapter_type} to looker. No dimension will be created.')
+
     return looker_type
 
 def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.SupportedDbtAdapters, type: str, table_format_sql=True, model=None):
@@ -209,6 +211,7 @@ def lookml_dimension_groups_from_model(model: models.DbtModel, adapter_type: mod
 
     return {'dimension_groups' : dimension_groups, 'dimension_group_sets': dimension_group_sets}
 
+
 def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters, include_names=None, exclude_names=[]):
     dimensions = []
     is_first_dimension = True  # Flag to identify the first dimension
@@ -290,6 +293,8 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
     return dimensions
 
 def lookml_measures_from_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters, include_names=None, exclude_names=[]):
+    """ Create a list of lookml measures from a dbt model.
+    """
     # Initialize an empty list to hold all lookml measures.
     lookml_measures = []
     table_format_sql = True
@@ -413,7 +418,6 @@ def extract_array_models(columns: list[models.DbtModelColumn])->list[models.DbtM
     return array_list
 
 
-
 def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[models.DbtModelColumn]):
     nested_columns = {}
 
@@ -464,7 +468,6 @@ def group_strings(all_columns:list[models.DbtModelColumn], array_columns:list[mo
 
     return nested_columns
 
-
 def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.SupportedDbtAdapters):
     ''' Create a looker view from a dbt model 
         if the model has nested arrays, create a view for each array
@@ -487,7 +490,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
                 view_label = model.name.replace("_", " ").title()
 
     if view_label is None:
-        logging.warn(f"This model has no name: {model.name}")
+        logging.warning(f"This model has no name: {model.name}")
 
     def recurse_views(structure, d):
         view_list = []
@@ -579,11 +582,17 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     if len(array_models) > 0:
         logging.info(f"{model.name} explore view definition")
 
+        hide_val = 'yes'
+        if hasattr(model.meta.looker, 'hidden'):
+            hidden = model.meta.looker.hidden
+            if not hidden:
+                hide_val = 'no'
+
         lookml_explore = [
         {
             'name': model.name, # to avoid name conflicts
             'joins': [],
-            'hidden': 'yes'
+            'hidden': hide_val
         }
         ]
         lookml_explore[0]['joins'].extend(recurse_joins(structure, model.name))

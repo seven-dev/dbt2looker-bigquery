@@ -14,7 +14,6 @@ from . import generator
 MANIFEST_PATH = './manifest.json'
 DEFAULT_LOOKML_OUTPUT_DIR = '.'
 
-
 def get_manifest(prefix: str):
     manifest_path = os.path.join(prefix, 'manifest.json')
     try:
@@ -80,7 +79,7 @@ def run():
         type=str,
     )
     argparser.add_argument(
-        '--exposures_only',
+        ['--exposures_only','-exposures-only'],
         help='add this flag to only generate lookml files for exposures',
         action='store_true',  # This makes the flag a boolean argument
     )
@@ -112,7 +111,6 @@ def run():
 
     # remove empty list objects
     lookml_views = [view for view in lookml_views if view]
-
 
     pathlib.Path(os.path.join(args.output_dir, 'views')).mkdir(exist_ok=True, parents=True)
     for view in lookml_views:
