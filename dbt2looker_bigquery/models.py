@@ -153,6 +153,9 @@ class DbtMetaMeasure(DbtMetaLooker):
     def validate_yes_no_fields(cls, v):
         return yes_no_validator(v)
 
+class DbtMetaDimension(DbtMetaLooker):
+    ''' a derived dimension defined in a dbt model '''
+
 class DbtModelColumnMeta(BaseModel):
     ''' Metadata about a column in a dbt model '''
     looker: Optional[DbtMetaLooker] = DbtMetaLooker() 

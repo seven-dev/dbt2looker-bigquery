@@ -582,17 +582,15 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     if len(array_models) > 0:
         logging.info(f"{model.name} explore view definition")
 
-        hide_val = 'yes'
         if hasattr(model.meta.looker, 'hidden'):
             hidden = model.meta.looker.hidden
-            if not hidden:
-                hide_val = 'no'
 
         lookml_explore = [
         {
             'name': model.name, # to avoid name conflicts
+            'label': view_label,
             'joins': [],
-            'hidden': hide_val
+            'hidden': hidden
         }
         ]
         lookml_explore[0]['joins'].extend(recurse_joins(structure, model.name))
