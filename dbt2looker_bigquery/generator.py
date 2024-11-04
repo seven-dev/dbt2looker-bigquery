@@ -582,8 +582,10 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
     if len(array_models) > 0:
         logging.info(f"{model.name} explore view definition")
 
+        hidden = 'yes'
         if hasattr(model.meta.looker, 'hidden'):
             hidden = model.meta.looker.hidden
+            
 
         lookml_explore = [
         {

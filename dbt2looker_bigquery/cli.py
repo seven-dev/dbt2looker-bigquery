@@ -79,7 +79,7 @@ def run():
         type=str,
     )
     argparser.add_argument(
-        ['--exposures_only','-exposures-only'],
+        '--exposures_only',
         help='add this flag to only generate lookml files for exposures',
         action='store_true',  # This makes the flag a boolean argument
     )
