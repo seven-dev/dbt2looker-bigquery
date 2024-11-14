@@ -2,6 +2,8 @@ import lkml
 from . import models
 import logging
 
+
+log = logging.getLogger("rich")
 class NotImplementedError(Exception):
     pass
 
@@ -498,7 +500,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
 
         for parent, children in structure.items():
             children_names = []
-
+            logging.info(f"{children['children']})")
             for child_strucure in children['children']:
                 for child_name, child_dict in child_strucure.items():
                     children_names.append(child_name)
@@ -506,7 +508,9 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
                         recursed_view_list, recursed_names = recurse_views(child_strucure, d=d+1)
                         view_list.extend(recursed_view_list)
                         used_names.extend(recursed_names)
-            logging.debug(f"adding view for {parent} d {d}")
+            logging.info(f"adding view for {parent} d {d}")
+            logging.info(f"children names: {children_names}")
+            logging.info(f"children {lookml_dimensions_from_model(model, adapter_type, include_names=children_names)}")
             view_list.append(
                 {
                     'name': model.name + "__" + parent.replace('.','__') ,

@@ -1,6 +1,8 @@
 import argparse
 import json
 import logging
+from rich.logging import RichHandler
+
 import pathlib
 import os
 try:
@@ -89,10 +91,9 @@ def run():
         type=str
     )
     args = argparser.parse_args()
+    FORMAT = "%(message)s"
     logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format='%(asctime)s %(levelname)-6s %(message)s',
-        datefmt='%H:%M:%S',
+        level=getattr(logging, args.log_level), format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
     )
 
     # Load raw manifest file

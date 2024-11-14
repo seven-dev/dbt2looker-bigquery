@@ -25,7 +25,7 @@ def parse_models(raw_manifest: dict, tag=None, exposures_only=False, select_mode
 
     for node in manifest.nodes.values():
         if node.resource_type == 'model':
-            logging.warning('Found model %s', node)
+            logging.debug('Found model %s', node.name)
 
     all_models: List[models.DbtModel] = [
         node
