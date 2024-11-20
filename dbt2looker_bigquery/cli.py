@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 from rich.logging import RichHandler
-
 import pathlib
 import os
 try:

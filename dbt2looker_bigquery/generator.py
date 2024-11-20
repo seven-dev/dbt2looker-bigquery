@@ -29,6 +29,27 @@ LOOKER_DTYPE_MAP = {
     }
 }
 
+def last_dot_only(input_string):
+    ''' replace all but the last period with a replacement string 
+        this is used to create unique names for joins
+    '''
+    sign = '.'
+    replacement = '__'
+    
+    # Splitting input_string into parts separated by sign (period)
+    parts = input_string.split(sign)
+    
+    # If there's more than one part, we need to do replacements.
+    if len(parts) > 1:
+        # Joining all parts except for last with replacement,
+        # and then adding back on final part.
+        output_string = replacement.join(parts[:-1]) + sign + parts[-1]
+        
+        return output_string
+    
+    # If there are no signs at all or just one part,
+    return input_string
+
 LOOKER_BIGQUERY_MEASURE_TYPES = [
     'count',
     'count_distinct',
@@ -124,7 +145,7 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             'name': column_name_adjusted,
             'label': column.lookml_name.replace("_date","").replace("_", " ").title(),
             'type': 'time',
-            'sql': f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name}__{column.name}',
+            'sql': last_dot_only(f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name}__{column.name}'),
             'description': column.description,
             'datatype': map_adapter_type_to_looker(adapter_type, column.data_type),
             'timeframes': timeframes,
@@ -177,7 +198,7 @@ def lookml_dimension_group(column: models.DbtModelColumn, adapter_type: models.S
             dimension_group_set['fields'].extend([f"{column.name}_iso_year", f"{column.name}_iso_week_of_year"])
 
         if not dimensions and type=='date':
-            logging.warn(f"no dimensions for {column.name} {column.data_type} {type} {table_format_sql} {model.name}__{column.name}")
+            logging.warning(f"no dimensions for {column.name} {column.data_type} {type} {table_format_sql} {model.name}__{column.name}")
 
         return dimension_group, dimension_group_set, dimensions
 
@@ -246,7 +267,7 @@ def lookml_dimensions_from_model(model: models.DbtModel, adapter_type: models.Su
             dimension = {
                 'name': column.lookml_long_name if table_format_sql else column.lookml_name,
                 'type': map_adapter_type_to_looker(adapter_type, column.data_type),
-                'sql': f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name}__{column.name}',
+                'sql': last_dot_only(f'${{TABLE}}.{column.name}' if table_format_sql else f'{model.name.replace(".","__")}__{column.name}'),
                 'description': column.description,
             }
             
@@ -333,7 +354,7 @@ def lookml_measure(column: models.DbtModelColumn, measure: models.DbtMetaMeasure
     m = {
         'name': f'm_{measure.type.value}_{column.name}',
         'type': measure.type.value,
-        'sql':  f'${{{column.name}}}' if table_format_sql else f'${{{model.name}__{column.name}}}',
+        'sql':  last_dot_only(f'${{{column.name}}}' if table_format_sql else f'${{{model.name}__{column.name}}}'),
         'description': f'{measure.type.value} of {column.name}',
     }
 
@@ -545,26 +566,6 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
 
     lookml_list.append(lookml_view)
 
-    def rael(input_string):
-        ''' replace all but the last period with a replacement string 
-            this is used to create unique names for joins
-        '''
-        sign = '.'
-        replacement = '__'
-        
-        # Splitting input_string into parts separated by sign (period)
-        parts = input_string.split(sign)
-        
-        # If there's more than one part, we need to do replacements.
-        if len(parts) > 1:
-            # Joining all parts except for last with replacement,
-            # and then adding back on final part.
-            output_string = replacement.join(parts[:-1]) + sign + parts[-1]
-            
-            return output_string
-        
-        # If there are no signs at all or just one part,
-        return input_string
 
     def recurse_joins(structure, parent_name):
         join_list = []
@@ -576,7 +577,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
                         join_list.extend(recursed_join_list)
             join_list.append(
                 {
-                    'sql' : f'LEFT JOIN UNNEST(${{{rael(model.name+"."+parent)}}}) AS {model.name}__{parent.replace(".","__")}',
+                    'sql' : f'LEFT JOIN UNNEST(${{{last_dot_only(model.name+"."+parent)}}}) AS {model.name}__{parent.replace(".","__")}',
                     'relationship': 'one_to_many',
                     'name': model.name + "__" + parent.replace('.','__'),
                 }
@@ -589,6 +590,8 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         hidden = 'yes'
         if hasattr(model.meta.looker, 'hidden'):
             hidden = model.meta.looker.hidden
+            if hidden == None:
+                hidden = 'yes'
             
 
         lookml_explore = [
@@ -611,6 +614,7 @@ def lookml_view_from_dbt_model(model: models.DbtModel, adapter_type: models.Supp
         }
 
     try: 
+        from rich import print
         contents = lkml.dump(lookml)
         model_failed = False
     except TypeError as e:
