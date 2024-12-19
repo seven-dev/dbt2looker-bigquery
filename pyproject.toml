@@ -1,24 +1,26 @@
 [project]
 name = "dbt2looker-bigquery"
-version = "0.13.2"
+version = "0.13.3"
 description = "Generate lookml view files from dbt models for Bigquery"
-requires_python = ">=3.10"
+requires_python = ">=3.12"
 readme = "README.md"
 homepage = "https://github.com/rognerud/dbt2looker-bigquery"
 repository = "https://github.com/rognerud/dbt2looker-bigquery"
 
 dependencies = [
     "lkml>=1.1",
-    "pydantic>=2.0",
+    "pydantic>=2.9",
     "PyYAML>=5.0",
     "typing-extensions>=4.0",
     "importlib-metadata>=4",
     "rich>=13.9.4",
+    "pytest-mock>=3.14.0",
+    "datamodel-code-generator>=0.26.3",
+    "pre-commit>=4.0.1",
 ]
-[tool.uv]
 
-[tool.uv.workspace]
-members = ["dist"]
+[uv]
+requires_python = ">=3.12"
 
 [project.scripts]
 dbt2looker = "dbt2looker_bigquery.cli:run"
@@ -43,3 +45,24 @@ allow_dirty = false
 commit = false
 message = "Bump version: {current_version} → {new_version}"
 commit_args = ""
+
+[tool.pytest]
+mock_use_standalone_module = true
+
+[tool.black]
+skip-string-normalization = true
+line-length = 100
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 100
+known_first_party = "kelvin"
+
+[tool.datamodel-codegen]
+field-constraints = true
+snake-case-field = true
+strip-default-none = false
+target-python-version = "3.12"

@@ -1,0 +1,30 @@
+name: PyPi Release
+
+
+on:
+  push:
+    tags:
+      - "prod-*"
+    # and all branch commits
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build
+      run: |
+        uv build
+
+    - name: Publish
+      env:
+        token: ${{ secrets.PYPI_TOKEN }}
+      run: |
+        uv publish --token $token
