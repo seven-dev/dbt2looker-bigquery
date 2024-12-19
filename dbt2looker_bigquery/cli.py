@@ -16,7 +16,6 @@ from . import generator, parser
 MANIFEST_PATH = "./manifest.json"
 DEFAULT_LOOKML_OUTPUT_DIR = "."
 
-
 def get_manifest(prefix: str):
     manifest_path = os.path.join(prefix, "manifest.json")
     try:

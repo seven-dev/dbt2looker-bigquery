@@ -1,27 +1,26 @@
-name: Bump version workflow
-
+name: "Version bumper"
 on:
-  push:
+  pull_request:
     branches:
-    - main
+      - main
+    paths:
+      - 'dbt2looker_bigquery/**'
+      - './pyproject.toml'
 
 jobs:
   bump-version:
-    name: Bump package version
-    runs-on: ubuntu-20.04
+    if: github.event.pull_request.merged == false
+    runs-on: ubuntu-latest
     steps:
-    - name: actions/checkout
-      uses: actions/checkout@v2
-      with:
-          persist-credentials: false
-    - name: current_version
-      run: echo "current_version=$(grep '# version' version.md | cut -d ' ' -f3)" >> $GITHUB_ENV
-    - name: FragileTech/bump-version
-      uses: FragileTech/bump-version@main
-      with:
-        current_version: "${{ env.current_version }}"
-        files: version.md
-        commit_name: Your Company Bot
-        commit_email: bot@your-company.com
-        login: your-bot-login
-        token: "${{ secrets.BOT_TOKEN }}"
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: "0"
+
+      - name: Version bumper
+        uses: apowis/pyproject-bump-version@v0.0.1
+        with:
+          file_to_bump: "./pyproject.toml"
+          bump_type: "minor"
+          main_branch: "main"
