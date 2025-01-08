@@ -250,3 +250,4 @@ class DbtManifest(BaseModel):
 
 class HiddenDimension():
     is_hidden = False    
+    
