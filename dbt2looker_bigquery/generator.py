@@ -637,7 +637,7 @@ def lookml_view_from_dbt_model(
 
     def recurse_views(structure, d):
         view_list = []
-        used_names = []
+        used_name_set = set()  # Set to track used names
 
         for parent, children in structure.items():
             children_names = []
@@ -649,33 +649,44 @@ def lookml_view_from_dbt_model(
                         recursed_view_list, recursed_names = recurse_views(
                             child_strucure, d=d + 1
                         )
-                        view_list.extend(recursed_view_list)
-                        used_names.extend(recursed_names)
+                        # Extend the view_list only with new unique views
+                        for view in recursed_view_list:
+                            view_key = view["name"]
+                            if view_key not in used_name_set:
+                                used_name_set.add(view_key)
+                                view_list.append(view)
+                        # Extend the set of used names
+                        used_name_set.update(recursed_names)
+
             logging.info(f"adding view for {parent} d {d}")
             logging.info(f"children names: {children_names}")
             logging.info(
                 f"children {lookml_dimensions_from_model(model, adapter_type, include_names=children_names)}"
             )
-            view_list.append(
-                {
-                    "name": model.name + "__" + parent.replace(".", "__"),
-                    "label": view_label + " : " + parent.replace("_", " ").title(),
-                    "dimensions": lookml_dimensions_from_model(
-                        model, adapter_type, include_names=children_names
-                    ),
-                    "dimension_groups": lookml_dimension_groups_from_model(
-                        model, adapter_type, include_names=children_names
-                    ).get("dimension_groups"),
-                    "sets": lookml_dimension_groups_from_model(
-                        model, adapter_type, include_names=children_names
-                    ).get("dimension_group_sets"),
-                    "measures": lookml_measures_from_model(
-                        model, adapter_type, include_names=children_names
-                    ),
-                }
-            )
-            used_names.extend(children_names)
-        return view_list, used_names
+            view = {
+                "name": model.name + "__" + parent.replace(".", "__"),
+                "label": view_label + " : " + parent.replace("_", " ").title(),
+                "dimensions": lookml_dimensions_from_model(
+                    model, adapter_type, include_names=children_names
+                ),
+                "dimension_groups": lookml_dimension_groups_from_model(
+                    model, adapter_type, include_names=children_names
+                ).get("dimension_groups"),
+                "sets": lookml_dimension_groups_from_model(
+                    model, adapter_type, include_names=children_names
+                ).get("dimension_group_sets"),
+                "measures": lookml_measures_from_model(
+                    model, adapter_type, include_names=children_names
+                ),
+            }
+            view_key = view["name"]
+            if view_key not in used_name_set:
+                used_name_set.add(view_key)
+                view_list.append(view)
+            # Extend the set of used names with children names
+            used_name_set.update(children_names)
+
+        return view_list, list(used_name_set)
 
     # this is for handling arrays
     used_names = []
