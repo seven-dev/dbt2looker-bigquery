@@ -176,9 +176,9 @@ def lookml_dimension_group(
             "group_label": f'{column.lookml_name.replace("_", " ").title()}',
             "convert_tz": convert_tz,
         }
-        if column.meta.looker.label != None:
+        if column.meta.looker.label is not None:
             dimension_group["label"] = column.meta.looker.label
-        if column.meta.looker.group_label != None:
+        if column.meta.looker.group_label is not None:
             dimension_group["group_label"] = column.meta.looker.group_label
 
         dimension_group_set = {
@@ -199,9 +199,9 @@ def lookml_dimension_group(
                 "group_label": f'{column.lookml_name.replace("_", " ").title()}',
                 "value_format_name": "id",
             }
-            if column.meta.looker.group_label != None:
+            if column.meta.looker.group_label is not None:
                 iso_year["group_label"] = column.meta.looker.group_label
-            if column.meta.looker.label != None:
+            if column.meta.looker.label is not None:
                 iso_year["label"] = f"{column.meta.looker.label} ISO Year"
 
             iso_week_of_year = {
@@ -213,9 +213,9 @@ def lookml_dimension_group(
                 "group_label": f'{column.lookml_name.replace("_", " ").title()}',
                 "value_format_name": "id",
             }
-            if column.meta.looker.group_label != None:
+            if column.meta.looker.group_label is not None:
                 iso_week_of_year["group_label"] = column.meta.looker.group_label
-            if column.meta.looker.label != None:
+            if column.meta.looker.label is not None:
                 iso_week_of_year["label"] = (
                     f"{column.meta.looker.label} ISO Week Of Year"
                 )
@@ -341,34 +341,32 @@ def lookml_dimensions_from_model(
                 dimension["tags"] = ["struct"]
                 # dimension.pop('type')
 
-            if is_first_dimension == True:
+            if is_first_dimension:
                 dimension["primary_key"] = "yes"
                 is_first_dimension = (
                     False  # Unset the flag after processing the first dimension
                 )
 
             if column.meta.looker is not None:
-                if column.meta.looker.group_label != None:
+                if column.meta.looker.group_label is not None:
                     dimension["group_label"] = column.meta.looker.group_label
-                if column.meta.looker.label != None:
+                if column.meta.looker.label is not None:
                     dimension["label"] = column.meta.looker.label
 
-                if column.meta.looker.hidden != None:
-                    dimension["hidden"] = (
-                        "yes" if column.meta.looker.hidden == True else "no"
-                    )
+                if column.meta.looker.hidden is not None:
+                    dimension["hidden"] = "yes" if column.meta.looker.hidden else "no"
                 elif is_hidden:
                     dimension["hidden"] = "yes"
 
-                if column.meta.looker.value_format_name != None:
+                if column.meta.looker.value_format_name is not None:
                     dimension["value_format_name"] = (
                         column.meta.looker.value_format_name.value
                     )
 
-            #based on argument parser --hidden_dimensions
+            # based on argument parser --hidden_dimensions
             if models.HiddenDimension.is_hidden:
                 dimension["hidden"] = "yes"
-                
+
             is_hidden = False
             dimensions.append(dimension)
 
@@ -449,14 +447,14 @@ def lookml_measure(
     }
 
     # inherit the value format, or overwrite it
-    if measure.value_format_name != None:
+    if measure.value_format_name is not None:
         m["value_format_name"] = measure.value_format_name.value
-    elif column.meta.looker != None:
-        if column.meta.looker.value_format_name != None:
+    elif column.meta.looker is not None:
+        if column.meta.looker.value_format_name is not None:
             m["value_format_name"] = column.meta.looker.value_format_name.value
 
     # allow configuring advanced lookml measures
-    if measure.sql != None:
+    if measure.sql is not None:
         validated_sql = validate_sql(measure.sql)
         if validated_sql is not None:
             m["sql"] = validated_sql
@@ -466,7 +464,7 @@ def lookml_measure(
                 )
                 m["type"] = "number"
 
-    if measure.sql_distinct_key != None:
+    if measure.sql_distinct_key is not None:
         validated_sql = validate_sql(measure.sql_distinct_key)
         if validated_sql is not None:
             m["sql_distinct_key"] = validated_sql
@@ -475,46 +473,46 @@ def lookml_measure(
                 f"SQL expression {measure.sql_distinct_key} is not valid. It is not set as sql_distinct_key."
             )
 
-    if measure.approximate != None:
+    if measure.approximate is not None:
         m["approximate"] = measure.approximate
 
-    if measure.approximate_threshold != None:
+    if measure.approximate_threshold is not None:
         m["approximate_threshold"] = measure.approximate_threshold
 
-    if measure.allow_approximate_optimization != None:
+    if measure.allow_approximate_optimization is not None:
         m["allow_approximate_optimization"] = measure.allow_approximate_optimization
 
-    if measure.can_filter != None:
+    if measure.can_filter is not None:
         m["can_filter"] = measure.can_filter
 
-    if measure.tags != None:
+    if measure.tags is not None:
         m["tags"] = measure.tags
 
-    if measure.alias != None:
+    if measure.alias is not None:
         m["alias"] = measure.alias
 
-    if measure.convert_tz != None:
+    if measure.convert_tz is not None:
         m["convert_tz"] = measure.convert_tz
 
-    if measure.suggestable != None:
+    if measure.suggestable is not None:
         m["suggestable"] = measure.suggestable
 
-    if measure.precision != None:
+    if measure.precision is not None:
         m["precision"] = measure.precision
 
-    if measure.percentile != None:
+    if measure.percentile is not None:
         m["percentile"] = measure.percentile
 
-    if measure.group_label != None:
+    if measure.group_label is not None:
         m["group_label"] = measure.group_label
 
-    if measure.label != None:
+    if measure.label is not None:
         m["label"] = measure.label
 
-    if measure.hidden != None:
+    if measure.hidden is not None:
         m["hidden"] = measure.hidden.value
 
-    if measure.description != None:
+    if measure.description is not None:
         m["description"] = measure.description
 
     logging.debug(f"measure created: {m}")
@@ -709,20 +707,29 @@ def lookml_view_from_dbt_model(
     lookml_list.append(lookml_view)
 
     def recurse_joins(structure, parent_name):
+        # this generates duplicates, so for now we just convert it into a set before returning
         join_list = []
+        joined_set = set()  # Set to track added joins
         for parent, children in structure.items():
             for child_strucure in children["children"]:
                 for child_name, child_dict in child_strucure.items():
                     if len((child_dict["children"])) > 0:
                         recursed_join_list = recurse_joins(child_strucure, child_name)
-                        join_list.extend(recursed_join_list)
-            join_list.append(
-                {
-                    "sql": f'LEFT JOIN UNNEST(${{{last_dot_only(model.name+"."+parent)}}}) AS {model.name}__{parent.replace(".","__")}',
-                    "relationship": "one_to_many",
-                    "name": model.name + "__" + parent.replace(".", "__"),
-                }
-            )
+                        # Extend the join_list only with new unique joins
+                        for join in recursed_join_list:
+                            join_key = (join["sql"], join["relationship"], join["name"])
+                            if join_key not in joined_set:
+                                joined_set.add(join_key)
+                                join_list.append(join)
+            join = {
+                "sql": f'LEFT JOIN UNNEST(${{{last_dot_only(model.name+"."+parent)}}}) AS {model.name}__{parent.replace(".","__")}',
+                "relationship": "one_to_many",
+                "name": model.name + "__" + parent.replace(".", "__"),
+            }
+            join_key = (join["sql"], join["relationship"], join["name"])
+            if join_key not in joined_set:
+                joined_set.add(join_key)
+                join_list.append(join)
         return join_list
 
     if len(array_models) > 0:
@@ -731,7 +738,7 @@ def lookml_view_from_dbt_model(
         hidden = "yes"
         if hasattr(model.meta.looker, "hidden"):
             hidden = model.meta.looker.hidden
-            if hidden == None:
+            if hidden is None:
                 hidden = "yes"
 
         lookml_explore = [
