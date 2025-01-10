@@ -365,6 +365,10 @@ def lookml_dimensions_from_model(
                         column.meta.looker.value_format_name.value
                     )
 
+            #based on argument parser --hidden_dimensions
+            if models.HiddenDimension.is_hidden:
+                dimension["hidden"] = "yes"
+                
             is_hidden = False
             dimensions.append(dimension)
 

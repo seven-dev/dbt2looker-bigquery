@@ -247,3 +247,7 @@ class DbtManifest(BaseModel):
     nodes: Dict[str, Union[DbtModel, DbtNode]]
     metadata: DbtManifestMetadata
     exposures : Dict[str, DbtExposure]
+
+class HiddenDimension():
+    is_hidden = False    
+    

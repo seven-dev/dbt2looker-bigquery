@@ -11,7 +11,7 @@ try:
 except ImportError:
     from importlib_metadata import version
 
-from . import generator, parser
+from . import generator, parser, models
 
 MANIFEST_PATH = "./manifest.json"
 DEFAULT_LOOKML_OUTPUT_DIR = "."
@@ -95,6 +95,12 @@ def run():
     argparser.add_argument(
         "--select", help="select a specific model to generate lookml for", type=str
     )
+    argparser.add_argument(
+        "--hidden_dimensions",
+        "--hidden-dimensions",
+        help="add this flag to force generated dimensions to be hidden",
+        action='store_true'  # on/off flag
+    )
     args = argparser.parse_args()
     FORMAT = "%(message)s"
     logging.basicConfig(
@@ -117,6 +123,9 @@ def run():
     )
 
     adapter_type = parser.parse_adapter_type(raw_manifest)
+
+    if args.hidden_dimensions: 
+        models.HiddenDimension.is_hidden = args.hidden_dimensions
 
     # Generate lookml views
     lookml_views = [

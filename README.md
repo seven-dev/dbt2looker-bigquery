@@ -41,6 +41,11 @@ dbt2looker --tag prod
 dbt2looker --exposed_only
 ```
 
+**Generate Looker view files with hidden=yes paramenter for all models**
+```shell
+dbt2looker --hidden_dimensions
+```
+
 ## Install
 
 **Install from PyPi repository**
