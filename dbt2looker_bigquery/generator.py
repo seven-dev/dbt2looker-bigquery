@@ -1,4 +1,5 @@
 import logging
+import re
 
 import lkml
 
@@ -92,6 +93,7 @@ looker_date_timeframes = [
     "quarter",
     "quarter_of_year",
     "year",
+    "raw",
 ]
 
 looker_time_timeframes = [
@@ -153,17 +155,19 @@ def lookml_dimension_group(
         if type == "time":
             convert_tz = "yes"
             timeframes = looker_time_timeframes
-            column_name_adjusted = column.name.replace("_date", "")
+            column_name_adjusted = re.sub(r"_date$", "", column.name)
         elif type == "date":
             convert_tz = "no"
             timeframes = looker_date_timeframes
-            column_name_adjusted = column.name.replace("_date", "")
+            column_name_adjusted = re.sub(r"_date$", "", column.name)
         else:
             raise NotImplementedError()
         dimensions = []
         dimension_group = {
             "name": column_name_adjusted,
-            "label": column.lookml_name.replace("_date", "").replace("_", " ").title(),
+            "label": re.sub(r"_date$", "", column.lookml_name)
+            .replace("_", " ")
+            .title(),
             "type": "time",
             "sql": last_dot_only(
                 f"${{TABLE}}.{column.name}"
@@ -192,7 +196,7 @@ def lookml_dimension_group(
         if type == "date":
             iso_year = {
                 "name": f"{column.name}_iso_year",
-                "label": f'{column.name.replace("_date","").replace("_"," ").title()} ISO Year',
+                "label": f'{re.sub(r'_date$', '', column.lookml_name).replace("_"," ").title()} ISO Year',
                 "type": "number",
                 "sql": f"Extract(isoyear from ${{TABLE}}.{column.name})",
                 "description": f"iso year for {column.name}",
@@ -206,7 +210,7 @@ def lookml_dimension_group(
 
             iso_week_of_year = {
                 "name": f"{column.name}_iso_week_of_year",
-                "label": f'{column.name.replace("_date","").replace("_"," ").title()} ISO Week Of Year',
+                "label": f'{re.sub(r'_date$', '', column.lookml_name).replace("_"," ").title()} ISO Week Of Year',
                 "type": "number",
                 "sql": f"Extract(isoweek from ${{TABLE}}.{column.name})",
                 "description": f"iso year for {column.name}",
