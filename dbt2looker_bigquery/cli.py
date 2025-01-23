@@ -106,6 +106,11 @@ class Cli:
             help="add this flag to force all dimensions and measures to be hidden",
             action="store_true",  # on/off flag
         )
+        parser.add_argument(
+            "--folder-structure",
+            help="Define the source of the folder structure. Default is 'DBT_FOLDER', other option is 'BIGQUERY_DATASET'",
+            default="DBT_FOLDER",
+        )
 
         parser.set_defaults(build_explore=True)
         return parser

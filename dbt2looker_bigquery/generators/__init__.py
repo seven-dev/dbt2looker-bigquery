@@ -107,6 +107,11 @@ class LookmlGenerator:
 
             lookml["explore"] = explore
 
+        # if self._cli_args.folder_structure == "BIGQUERY_DATASET":
+        #     file_path = self._get_dataset(model, view_name)
+        # elif self._cli_args.folder_structure == "DBT_FOLDER":
+        #     file_path = self._get_file_path(model, view_name)
+        # print(file_path)
         return self._get_file_path(model, view_name), lookml
 
 
