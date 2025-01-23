@@ -1,8 +1,6 @@
 """LookML explore generator module."""
 
-import logging
-
-from dbt2looker_bigquery.models.dbt import DbtModel, DbtModelColumn
+from dbt2looker_bigquery.models.dbt import DbtModel
 
 
 class LookmlExploreGenerator:
@@ -11,128 +9,98 @@ class LookmlExploreGenerator:
     def __init__(self, args):
         self._cli_args = args
 
-    def _group_strings(
-        self, all_columns: list[DbtModelColumn], array_columns: list[DbtModelColumn]
-    ) -> dict:
-        """Group strings into a nested structure."""
-        nested_columns = {}
+    def last_dot_only(self, input_string):
+        """replace all but the last period with a replacement string
+        this is used to create unique names for joins
+        """
+        sign = "."
+        replacement = "__"
 
-        def remove_parts(input_string):
-            parts = input_string.split(".")
-            modified_parts = parts[:-1]
-            result = ".".join(modified_parts)
-            return result
+        # Splitting input_string into parts separated by sign (period)
+        parts = input_string.split(sign)
 
-        def recurse(parent: DbtModelColumn, all_columns: list[DbtModelColumn], level=0):
-            structure = {"column": parent, "children": []}
+        # If there's more than one part, we need to do replacements.
+        if len(parts) > 1:
+            # Joining all parts except for last with replacement,
+            # and then adding back on final part.
+            output_string = replacement.join(parts[:-1]) + sign + parts[-1]
 
-            for column in all_columns:
-                if column.data_type in ("ARRAY", "STRUCT"):
-                    # If ARRAY<INT64> or likeworthy
-                    if (
-                        len(column.inner_types) == 1
-                        and " " not in column.inner_types[0]
-                    ):
-                        structure["children"].append(
-                            {column.name: {"column": column, "children": []}}
-                        )
-                    # Normal ARRAY or STRUCT
-                    else:
-                        structure["children"].append(
-                            {
-                                column.name: recurse(
-                                    parent=column,
-                                    all_columns=[
-                                        d
-                                        for d in all_columns
-                                        if remove_parts(d.name) == column.name
-                                    ],
-                                    level=level + 1,
-                                )
-                            }
-                        )
-                else:
-                    structure["children"].append(
-                        {column.name: {"column": column, "children": []}}
-                    )
+            return output_string
 
-            return structure
+        # If there are no signs at all or just one part,
+        return input_string
 
-        for parent in array_columns:
-            nested_columns[parent.name] = recurse(
-                parent, [d for d in all_columns if remove_parts(d.name) == parent.name]
-            )
+    def remove_dots(self, input_string):
+        """replace all periods with a replacement string
+        this is used to create unique names for joins
+        """
+        sign = "."
+        replacement = "__"
 
-        return nested_columns
+        return input_string.replace(sign, replacement)
 
-    def recurse_joins(self, structure, model):
-        """Recursively build joins for nested structures."""
-        if not structure:
-            return []
+    def get_reduced_paths(self, input_string):
+        # Split the input string by periods
+        parts = input_string.split(".")
 
+        # Initialize the result list
+        result = []
+
+        # Construct the reduced paths from the parts
+        for i in range(len(parts) - 1, 0, -1):
+            reduced_path = ".".join(parts[:i])
+            result.append(self.remove_dots(reduced_path))
+
+        return result
+
+    def generate_joins(self, model, structure):
         join_list = []
-        for parent, children in structure.items():
-            # Use table name from relation_name if use_table_name is True
-            base_name = (
-                model.relation_name.split(".")[-1].strip("`")
-                if self._cli_args.use_table_name
-                else model.name
-            )
-            view_name = f"{base_name}__{parent.replace('.','__')}"
 
-            # Create SQL join for array unnesting
-            join_sql = f"LEFT JOIN UNNEST(${{{base_name}.{parent}}}) AS {view_name}"
+        base_name = (
+            model.relation_name.split(".")[-1].strip("`")
+            if self._cli_args.use_table_name
+            else model.name
+        )
 
-            # Add to list
-            join_list.append(
-                {
-                    "name": view_name,
-                    "relationship": "one_to_many",
-                    "sql": join_sql,
-                    "type": "left_outer",
-                    "required_joins": [],  # No required joins for top-level arrays
-                }
-            )
+        for key, _ in structure.items():
+            depth = key[0]
+            if depth > 0:
+                prepath = key[1]
+                view_base = f"{base_name}.{prepath}"
+                view_name = self.remove_dots(view_base)
+                join_name = self.last_dot_only(view_base)
+                join_sql = f"LEFT JOIN UNNEST(${{{join_name}}}) AS {view_name}"
 
-            # Process nested arrays within this array
-            for child_structure in children["children"]:
-                for child_name, child_dict in child_structure.items():
-                    if len(child_dict["children"]) > 0:
-                        child_view_name = f"{base_name}__{child_name.replace('.','__')}"
-                        child_join_sql = f'LEFT JOIN UNNEST(${{{view_name}.{child_name.split(".")[-1]}}}) AS {child_view_name}'
+                depth = key[0]
+                if depth > 1:
+                    required_joins = self.get_reduced_paths(prepath)
+                else:
+                    required_joins = []
 
-                        join_list.append(
-                            {
-                                "name": child_view_name,
-                                "relationship": "one_to_many",
-                                "sql": child_join_sql,
-                                "type": "left_outer",
-                                "required_joins": [
-                                    view_name
-                                ],  # This join requires the parent view
-                            }
-                        )
-
-                        # Recursively process any deeper nested arrays
-                        join_list.extend(self.recurse_joins(child_structure, model))
-
+                # Add to list
+                join_list.append(
+                    {
+                        "name": view_name,
+                        "relationship": "one_to_many",
+                        "sql": join_sql,
+                        "type": "left_outer",
+                        "required_joins": required_joins,
+                    }
+                )
         return join_list
 
     def generate(
-        self, model: DbtModel, view_name: str, view_label: str, array_models: list
+        self, model: DbtModel, view_name: str, view_label: str, grouped_columns: dict
     ) -> dict:
         """Create the explore definition."""
-        # Get nested structure for joins
-        structure = self._group_strings(list(model.columns.values()), array_models)
-
-        # Check if model.meta.looker exists and has hidden attribute
-        hidden = "no"
+        # default behavior is to hide the view
+        hidden = "yes"
         if (
             hasattr(model, "meta")
             and hasattr(model.meta, "looker")
             and hasattr(model.meta.looker, "hidden")
         ):
-            hidden = "yes" if model.meta.looker.hidden else "no"
+            hidden = "no" if not model.meta.looker.hidden else "yes"
 
         # Create explore
         explore = {
@@ -142,9 +110,9 @@ class LookmlExploreGenerator:
             "hidden": hidden,
         }
 
-        # Add joins if present
-        if joins := self.recurse_joins(structure, model):
-            logging.info(f"Adding {len(joins)} joins to explore")
+        # if joins exist we need to explore them
+        if joins := self.generate_joins(model, grouped_columns):
             explore["joins"] = joins
-
-        return explore
+            return explore
+        else:
+            return None

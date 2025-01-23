@@ -1,6 +1,6 @@
 from dbt2looker_bigquery.enums import LookerMeasureType, LookerScalarTypes
 from dbt2looker_bigquery.generators.utils import get_column_name, map_bigquery_to_looker
-from dbt2looker_bigquery.models.dbt import DbtModel, DbtModelColumn
+from dbt2looker_bigquery.models.dbt import DbtModelColumn
 from dbt2looker_bigquery.models.looker import DbtMetaLookerMeasure
 
 
@@ -46,8 +46,7 @@ class LookmlMeasureGenerator:
         self,
         column: DbtModelColumn,
         measure: DbtMetaLookerMeasure,
-        table_format_sql: bool,
-        model: DbtModel,
+        is_main_view: bool,
     ) -> dict:
         """Create a LookML measure from a DBT model column and measure."""
         if measure.type.value not in [t.value for t in LookerMeasureType]:
@@ -56,7 +55,7 @@ class LookmlMeasureGenerator:
         m = {
             "name": f"m_{measure.type.value}_{column.name}",
             "type": measure.type.value,
-            "sql": get_column_name(column, table_format_sql),
+            "sql": get_column_name(column, is_main_view),
             "description": measure.description
             or f"{measure.type.value} of {column.name}",
         }
@@ -78,27 +77,12 @@ class LookmlMeasureGenerator:
         return m
 
     def lookml_measures_from_model(
-        self, model: DbtModel, include_names: list = None, exclude_names: list = None
+        self, column_list: list[DbtModelColumn], is_main_view: bool
     ) -> list:
         """Generate measures from model."""
-        if exclude_names is None:
-            exclude_names = []
         lookml_measures = []
-        table_format_sql = True
 
-        for column in model.columns.values():
-            if include_names:
-                table_format_sql = False
-
-                # For nested fields, if any parent is in include_names, include this field
-                if column.name not in include_names and all(
-                    parent not in include_names for parent in column.name.split(".")
-                ):
-                    continue
-
-            if exclude_names and column.name in exclude_names:
-                continue
-
+        for column in column_list:
             if (
                 map_bigquery_to_looker(column.data_type) in LookerScalarTypes.values()
                 and hasattr(column.meta, "looker")
@@ -106,7 +90,7 @@ class LookmlMeasureGenerator:
                 and column.meta.looker.measures
             ):
                 lookml_measures.extend(
-                    self._lookml_measure(column, measure, table_format_sql, model)
+                    self._lookml_measure(column, measure, is_main_view)
                     for measure in column.meta.looker.measures
                 )
 

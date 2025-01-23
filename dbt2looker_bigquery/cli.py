@@ -102,14 +102,25 @@ class Cli:
             action="store_true",
         )
         parser.add_argument(
-            "--hidden",
+            "--all-hidden",
             help="add this flag to force all dimensions and measures to be hidden",
-            action="store_true",  # on/off flag
+            action="store_true",
         )
         parser.add_argument(
             "--folder-structure",
-            help="Define the source of the folder structure. Default is 'DBT_FOLDER', other option is 'BIGQUERY_DATASET'",
-            default="DBT_FOLDER",
+            help="Define the source of the folder structure. Default is 'BIGQUERY_DATASET', other option is 'DBT_FOLDER'",
+            default="BIGQUERY_DATASET",
+        )
+        parser.add_argument(
+            "--remove-prefix-from-dataset",
+            help="Remove prefix from dataset name, only works with 'BIGQUERY_DATASET' folder structure",
+            type=str,
+        )
+        parser.add_argument(
+            "--implicit-primary-key",
+            help="Add this flag to set primary keys on views based on the first field",
+            action="store_true",
+            default=False,
         )
 
         parser.set_defaults(build_explore=True)

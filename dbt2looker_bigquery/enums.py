@@ -187,3 +187,8 @@ class LookerJoinType(str, ExtendedEnum):
     FULL_OUTER = "full_outer"
     INNER = "inner"
     CROSS = "cross"
+
+
+class FolderStructure(str, ExtendedEnum):
+    BIGQUERY_DATASET = "BIGQUERY_DATASET"
+    DBT_FOLDER = "DBT_FOLDER"

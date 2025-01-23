@@ -56,6 +56,9 @@ class LookmlDimensionGenerator:
                         meta_value = value
                     target_dict[attr] = meta_value
 
+        if self._cli_args.all_hidden:
+            target_dict["hidden"] = "yes"
+
     def _create_iso_field(
         self, field_type: str, column: DbtModelColumn, sql: str
     ) -> dict:
@@ -70,7 +73,9 @@ class LookmlDimensionGenerator:
             "group_label": "D Date",
             "value_format_name": "id",
         }
-        self._apply_meta_looker_attributes(field, column, ["group_label", "label"])
+        self._apply_meta_looker_attributes(
+            field, column, ["group_label", "label", "hidden"]
+        )
         if field_type == "week_of_year":
             field["label"] = field["label"].replace("Week", "Week Of Year")
         return field
@@ -84,9 +89,7 @@ class LookmlDimensionGenerator:
             return "date"
         return "scalar"
 
-    def _create_dimension(
-        self, column: DbtModelColumn, sql: str, is_hidden: bool = False
-    ) -> Optional[dict]:
+    def _create_dimension(self, column: DbtModelColumn, sql: str) -> Optional[dict]:
         """Create a basic dimension dictionary."""
         data_type = map_bigquery_to_looker(column.data_type)
         if data_type is None:
@@ -103,10 +106,6 @@ class LookmlDimensionGenerator:
         # Add primary key attributes
         if column.is_primary_key:
             dimension["primary_key"] = "yes"
-            # dimension['hidden'] = 'yes'
-            dimension["value_format_name"] = "id"
-        elif is_hidden:
-            dimension["hidden"] = "yes"
 
         # Handle array and struct types
         if "ARRAY" in f"{column.data_type}":
@@ -114,7 +113,6 @@ class LookmlDimensionGenerator:
             dimension["tags"] = ["array"]
             dimension.pop("type", None)
         elif "STRUCT" in f"{column.data_type}":
-            dimension["hidden"] = "no"
             dimension["tags"] = ["struct"]
 
         # Apply meta looker attributes
@@ -130,8 +128,7 @@ class LookmlDimensionGenerator:
         self,
         column: DbtModelColumn,
         looker_type: str,
-        table_format_sql: bool,
-        model: DbtModel,
+        main_view: bool,
     ) -> tuple:
         """Create dimension group for date/time fields."""
         if map_bigquery_to_looker(column.data_type) is None:
@@ -148,7 +145,7 @@ class LookmlDimensionGenerator:
         else:
             return None, None, None
 
-        sql = get_column_name(column, table_format_sql)
+        sql = get_column_name(column, main_view)
 
         dimensions = []
         dimension_group = {
@@ -163,7 +160,7 @@ class LookmlDimensionGenerator:
             "convert_tz": convert_tz,
         }
         self._apply_meta_looker_attributes(
-            dimension_group, column, ["group_label", "label"]
+            dimension_group, column, ["group_label", "label", "hidden"]
         )
 
         dimension_group_set = {
@@ -201,93 +198,67 @@ class LookmlDimensionGenerator:
         )
 
     def _add_dimension_to_dimension_group(
-        self, model: DbtModel, dimensions: list = None, table_format_sql: bool = True
+        self, model: DbtModel, dimensions: list = None, main_view: bool = True
     ):
         """Add dimensions to dimension groups."""
         for column in model.columns.values():
             if column.data_type == "DATE":
                 _, _, dimension_group_dimensions = self.lookml_dimension_group(
-                    column, "date", table_format_sql, model
+                    column, "date", main_view
                 )
                 if dimension_group_dimensions:
                     dimensions.extend(dimension_group_dimensions)
 
     def lookml_dimensions_from_model(
-        self, model: DbtModel, include_names: list = None, exclude_names: list = None
+        self, column_list: list[DbtModelColumn], is_main_view: bool
     ) -> tuple:
         """Generate dimensions from model."""
-        if exclude_names is None:
-            exclude_names = []
         dimensions = []
-        table_format_sql = True
-        # is_hidden = False
-        nested_dimensions = []
 
-        # First add ISO date dimensions for main view only
-        if not include_names:  # Only for main view
-            self._add_dimension_to_dimension_group(model, dimensions, table_format_sql)
+        if self._cli_args.implicit_primary_key:
+            primary_key = True
+            for column in column_list:
+                column.is_primary_key = primary_key
+                primary_key = None
 
         # Then add regular dimensions
-        for column in model.columns.values():
-            if include_names:
-                table_format_sql = False
-
-                # For nested views, only include fields that are children of the parent
-                # or the parent itself if it's a simple array
-                parent = include_names[0] if include_names else None
-                if column.name == parent:
-                    # Keep parent field only if it's a simple array (e.g. ARRAY<INT64>)
-                    if self._is_single_type_array(column):
-                        dimensions.append(self._create_single_array_dimension(column))
-                    # Skip column equal to parent
-                    continue
-                elif not column.name.startswith(f"{parent}."):
-                    continue
-
-            if column.name in exclude_names or column.data_type == "DATETIME":
+        for column in column_list:
+            if column.data_type == "DATETIME":
                 continue
 
-            # Skip date dimensions since we handled them above
-            if column.data_type == "DATE" and not include_names:
+            if column.data_type == "DATE":
                 continue
 
             if column.data_type is None:
                 continue
 
-            column_name = get_column_name(column, table_format_sql)
+            column_name = get_column_name(column, is_main_view)
             dimension = self._create_dimension(column, column_name)
 
             if dimension is not None:
                 dimensions.append(dimension)
 
-        return dimensions, nested_dimensions
+        return dimensions
 
     def lookml_dimension_groups_from_model(
-        self, model: DbtModel, include_names: list = None, exclude_names: list = None
+        self, columns: list[DbtModelColumn], is_main_view: bool
     ) -> dict:
         """Generate dimension groups from model."""
-        if exclude_names is None:
-            exclude_names = []
         dimension_groups = []
         dimension_group_sets = []
-        table_format_sql = not include_names
+        # table_format_sql = not include_names
 
-        for column in model.columns.values():
-            if include_names and column.name not in include_names:
-                continue
+        # First add ISO date dimensions for main view only
+        # if not include_names:  # Only for main view
+        # self._add_dimension_to_dimension_group(model, dimensions, table_format_sql)
 
-            if exclude_names and column.name in exclude_names:
-                continue
-
+        for column in columns:
             looker_type = self._get_looker_type(column)
             if looker_type in ("time", "date"):
-                dimension_group, dimension_group_set, dimensions = (
-                    self.lookml_dimension_group(
-                        column=column,
-                        looker_type=looker_type,
-                        table_format_sql=table_format_sql,
-                        model=model,
-                    )
+                dimension_group, dimension_group_set, _ = self.lookml_dimension_group(
+                    column=column,
+                    looker_type=looker_type,
+                    main_view=is_main_view,
                 )
                 if dimension_group:
                     dimension_groups.append(dimension_group)

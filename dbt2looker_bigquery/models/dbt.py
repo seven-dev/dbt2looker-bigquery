@@ -176,6 +176,7 @@ class DbtModelColumn(BaseModel):
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
     is_primary_key: Optional[bool] = False
+    is_inner_array_representation: Optional[bool] = False
 
     # Root validator
     @model_validator(mode="before")
@@ -195,17 +196,17 @@ class DbtModelColumn(BaseModel):
         # If the field is an array, it's a nested field
         return values
 
-    @model_validator(mode="before")
-    @classmethod
-    def set_primary_key(cls, values):
-        constraints = values.get("constraints", [])
+    # @model_validator(mode="before")
+    # @classmethod
+    # def set_primary_key(cls, values):
+    #     constraints = values.get("constraints", [])
 
-        # if there is a primary key in constraints
-        if {"type": "primary_key"} in constraints:
-            logging.debug("Found primary key on %s model", values["name"])
-            values["is_primary_key"] = True
+    #     # if there is a primary key in constraints
+    #     if {"type": "primary_key"} in constraints:
+    #         logging.debug("Found primary key on %s model", values["name"])
+    #         values["is_primary_key"] = True
 
-        return values
+    #     return values
 
 
 class DbtModelMeta(BaseModel):
@@ -252,6 +253,35 @@ class DbtModel(DbtNode):
                     f"The value for key {name} is not a DbtModelColumn instance."
                 )
         return new_columns
+
+    @model_validator(mode="before")
+    def validate_model(cls, values):
+        columns = values.get("columns", {})
+
+        # Check and convert columns if they are in dict form instead of DbtModelColumn instances
+        new_columns = {}
+        for name, column in columns.items():
+            if isinstance(column, dict):
+                column = DbtModelColumn(**column)
+            if isinstance(column, DbtModelColumn):
+                new_columns[name.lower()] = column
+            else:
+                raise ValueError(
+                    f"Column {name} is not a valid DbtModelColumn instance"
+                )
+
+        values["columns"] = new_columns
+
+        # Set the first column flag after ensuring all columns are converted
+        if new_columns:
+            first_key = list(new_columns.keys())[0]
+            first_column = new_columns[first_key]
+            first_column = first_column.model_copy(
+                update={"is_first_column_in_model": True}
+            )
+            new_columns[first_key] = first_column
+
+        return values
 
 
 class DbtManifestMetadata(BaseModel):

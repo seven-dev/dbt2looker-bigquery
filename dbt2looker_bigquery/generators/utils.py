@@ -18,9 +18,9 @@ def map_bigquery_to_looker(column_type: str | None) -> Optional[str]:
         return None
 
 
-def get_column_name(column: DbtModelColumn, table_format_sql: bool) -> str:
+def get_column_name(column: DbtModelColumn, is_main_view: bool) -> str:
     """Get name of column."""
-    if not table_format_sql and "." in column.name:
+    if not is_main_view and "." in column.name:
         return f"{column.lookml_name}"  # it will never return blank, validated in model
 
     if "." in column.name:

@@ -55,6 +55,8 @@ def test_parse_args_all_options():
             "--log-level",
             "DEBUG",
             "--generate-locale",
+            "--implicit-primary-key",
+            "--all-hidden",
         ]
     )
 
@@ -67,6 +69,8 @@ def test_parse_args_all_options():
     assert args.log_level == "DEBUG"
     assert args.exposures_only is True
     assert args.generate_locale is True
+    assert args.implicit_primary_key is True
+    assert args.all_hidden is True
 
 
 @patch("dbt2looker_bigquery.cli.DbtParser")

@@ -34,7 +34,8 @@ def cli_args():
     return Namespace(
         use_table_name=False,
         build_explore=False,
-        table_format_sql=True,
+        all_hidden=False,
+        implicit_primary_key=False,
     )
 
 
@@ -76,18 +77,6 @@ def test_map_bigquery_to_looker(bigquery_type, expected_looker_type):
 
 def test_dimension_group_time(cli_args):
     """Test creation of time-based dimension groups"""
-    model = DbtModel(
-        name="test_model",
-        path="models/test_model.sql",
-        relation_name="`project.dataset.table_name`",
-        columns={},
-        meta=DbtModelMeta(),
-        unique_id="test_model",
-        resource_type="model",
-        schema="test_schema",
-        description="Test model",
-        tags=[],
-    )
 
     column = DbtModelColumn(
         name="created_at",
@@ -99,7 +88,7 @@ def test_dimension_group_time(cli_args):
     )
 
     dimension_generator = LookmlDimensionGenerator(cli_args)
-    result = dimension_generator.lookml_dimension_group(column, "time", True, model)
+    result = dimension_generator.lookml_dimension_group(column, "time", True)
     assert isinstance(result[0], dict)
     assert result[0].get("type") == "time"
     assert result[0].get("timeframes") == LookerTimeTimeframes.values()
@@ -109,18 +98,6 @@ def test_dimension_group_time(cli_args):
 def test_dimension_group_date(cli_args):
     """Test creation of date-based dimension groups"""
     dimension_generator = LookmlDimensionGenerator(cli_args)
-    model = DbtModel(
-        name="test_model",
-        path="models/test_model.sql",
-        relation_name="`project.dataset.table_name`",
-        columns={},
-        meta=DbtModelMeta(),
-        unique_id="test_model",
-        resource_type="model",
-        schema="test_schema",
-        description="Test model",
-        tags=[],
-    )
 
     # Test with date column
     column = DbtModelColumn(
@@ -139,7 +116,7 @@ def test_dimension_group_date(cli_args):
     )
 
     dimension_group, dimension_set, _ = dimension_generator.lookml_dimension_group(
-        column, "date", True, model
+        column, "date", True
     )
     assert dimension_group["type"] == "date"
     assert dimension_group["convert_tz"] == "no"
@@ -191,7 +168,9 @@ def test_lookml_dimensions_with_metadata(cli_args):
         tags=[],
     )
 
-    dimensions, _ = dimension_generator.lookml_dimensions_from_model(model)
+    dimensions = dimension_generator.lookml_dimensions_from_model(
+        model.columns.values(), True
+    )
     assert len(dimensions) == 1
     dimension = dimensions[0]
     assert dimension["name"] == "string_col"
@@ -237,7 +216,9 @@ def test_lookml_measures_from_model(cli_args):
         tags=[],
     )
 
-    measures = measure_generator.lookml_measures_from_model(model)
+    measures = measure_generator.lookml_measures_from_model(
+        model.columns.values(), True
+    )
     assert len(measures) == 1
     measure = measures[0]
     assert measure["type"] == LookerMeasureType.SUM.value
@@ -286,7 +267,9 @@ def test_lookml_measures_with_filters(cli_args):
         tags=[],
     )
 
-    measures = measure_generator.lookml_measures_from_model(model)
+    measures = measure_generator.lookml_measures_from_model(
+        model.columns.values(), True
+    )
     assert len(measures) == 1
     measure = measures[0]
     assert measure["type"] == LookerMeasureType.SUM.value
