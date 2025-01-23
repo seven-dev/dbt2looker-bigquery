@@ -1,158 +1,189 @@
 import argparse
-import json
-import logging
 import os
-import pathlib
 
-from rich.logging import RichHandler
+import lkml
 
 try:
     from importlib.metadata import version
 except ImportError:
     from importlib_metadata import version
 
-from . import generator, parser, models
+import logging
 
-MANIFEST_PATH = "./manifest.json"
-DEFAULT_LOOKML_OUTPUT_DIR = "."
+from rich.logging import RichHandler
 
-def get_manifest(prefix: str):
-    manifest_path = os.path.join(prefix, "manifest.json")
-    try:
-        with open(manifest_path, "r") as f:
-            raw_manifest = json.load(f)
-    except FileNotFoundError:
-        logging.error(
-            f"Could not find manifest file at {manifest_path}. Use --target-dir to change the search path for the manifest.json file."
+from dbt2looker_bigquery.exceptions import CliError
+from dbt2looker_bigquery.generators import LookmlGenerator
+from dbt2looker_bigquery.parsers import DbtParser
+from dbt2looker_bigquery.utils import FileHandler
+
+logging.basicConfig(
+    level=logging.INFO, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
+)
+
+
+class Cli:
+    DEFAULT_LOOKML_OUTPUT_DIR = "./views"
+    HEADER = """
+    Convert your dbt models to LookML views
+    """
+
+    def __init__(self):
+        self._args_parser = self._init_argparser()
+        self._file_handler = FileHandler()
+
+    def _init_argparser(self):
+        """Create and configure the argument parser"""
+        parser = argparse.ArgumentParser(
+            description=self.HEADER,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
         )
-        raise SystemExit("Failed")
-    logging.debug(f"Detected manifest at {manifest_path}")
-    return raw_manifest
-
-
-def get_catalog(prefix: str):
-    catalog_path = os.path.join(prefix, "catalog.json")
-    try:
-        with open(catalog_path, "r") as f:
-            raw_catalog = json.load(f)
-    except FileNotFoundError:
-        logging.error(
-            f"Could not find catalog file at {catalog_path}. Use --target-dir to change the search path for the catalog.json file."
+        parser.add_argument(
+            "--version",
+            action="version",
+            version=f'dbt2looker_bigquery {version("dbt2looker_bigquery")}',
         )
-        raise SystemExit("Failed")
-    logging.debug(f"Detected catalog at {catalog_path}")
-    return raw_catalog
-
-
-def run():
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument(
-        "--version",
-        action="version",
-        version=f'dbt2looker {version("dbt2looker_bigquery")}',
-    )
-    argparser.add_argument(
-        "--target-dir",
-        help='Path to dbt target directory containing manifest.json and catalog.json. Default is "./target"',
-        default="./target",
-        type=str,
-    )
-    argparser.add_argument(
-        "--tag",
-        help="Filter to dbt models using this tag",
-        type=str,
-    )
-    argparser.add_argument(
-        "--log-level",
-        help="Set level of logs. Default is INFO",
-        choices=["DEBUG", "INFO", "WARN", "ERROR"],
-        type=str,
-        default="INFO",
-    )
-    argparser.add_argument(
-        "--output-dir",
-        help="Path to a directory that will contain the generated lookml files",
-        default=DEFAULT_LOOKML_OUTPUT_DIR,
-        type=str,
-    )
-    argparser.add_argument(
-        "--model-connection",
-        help="DB Connection Name for generated model files",
-        type=str,
-    )
-    argparser.add_argument(
-        "--remove-schema-string",
-        help="string to remove from folder name when generating lookml files",
-        type=str,
-    )
-    argparser.add_argument(
-        "--exposures_only",
-        "--exposures-only",
-        dest="exposures_only",
-        help="add this flag to only generate lookml files for exposures",
-        action="store_true",  # This makes the flag a boolean argument
-    )
-    argparser.add_argument(
-        "--select", help="select a specific model to generate lookml for", type=str
-    )
-    argparser.add_argument(
-        "--hidden_dimensions",
-        "--hidden-dimensions",
-        help="add this flag to force generated dimensions to be hidden",
-        action='store_true'  # on/off flag
-    )
-    args = argparser.parse_args()
-    FORMAT = "%(message)s"
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format=FORMAT,
-        datefmt="[%X]",
-        handlers=[RichHandler()],
-    )
-
-    # Load raw manifest file
-    raw_manifest = get_manifest(prefix=args.target_dir)
-    raw_catalog = get_catalog(prefix=args.target_dir)
-    # Get dbt models from manifest
-    typed_dbt_models = parser.parse_typed_models(
-        raw_manifest,
-        raw_catalog,
-        tag=args.tag,
-        exposures_only=args.exposures_only,
-        select_model=args.select,
-    )
-
-    adapter_type = parser.parse_adapter_type(raw_manifest)
-
-    if args.hidden_dimensions: 
-        models.HiddenDimension.is_hidden = args.hidden_dimensions
-
-    # Generate lookml views
-    lookml_views = [
-        generator.lookml_view_from_dbt_model(model, adapter_type)
-        for model in typed_dbt_models
-    ]
-
-    # remove empty list objects
-    lookml_views = [view for view in lookml_views if view]
-
-    pathlib.Path(os.path.join(args.output_dir, "views")).mkdir(
-        exist_ok=True, parents=True
-    )
-    for view in lookml_views:
-        # handle schema name
-        if args.remove_schema_string:
-            view.db_schema = view.db_schema.replace(args.remove_schema_string, "")
-        pathlib.Path(os.path.join(args.output_dir, "views", view.db_schema)).mkdir(
-            exist_ok=True, parents=True
+        parser.add_argument(
+            "--target-dir",
+            help='Path to dbt target directory containing manifest.json and catalog.json. Default is "./target"',
+            default="./target",
+            type=str,
         )
-        with open(
-            os.path.join(args.output_dir, "views", view.db_schema, view.filename), "w"
-        ) as f:
-            f.write(view.contents)
+        parser.add_argument(
+            "--tag",
+            help="Filter to dbt models using this tag",
+            type=str,
+        )
+        parser.add_argument(
+            "--log-level",
+            help="Set level of logs. Default is INFO",
+            choices=["DEBUG", "INFO", "WARN", "ERROR"],
+            type=str,
+            default="INFO",
+        )
+        parser.add_argument(
+            "--output-dir",
+            help="Path to a directory that will contain the generated lookml files",
+            default=self.DEFAULT_LOOKML_OUTPUT_DIR,
+            type=str,
+        )
+        parser.add_argument(
+            "--remove-schema-string",
+            help="string to remove from folder name when generating lookml files",
+            type=str,
+        )
+        parser.add_argument(
+            "--exposures-only",
+            help="add this flag to only generate lookml files for exposures",
+            action="store_true",
+        )
+        parser.add_argument(
+            "--exposures-tag",
+            help="add this flag to only generate lookml files for specific tag in exposures",
+            type=str,
+        )
+        parser.add_argument(
+            "--skip-explore",
+            help='add this flag to skip generating an sample "explore" in views for nested structures',
+            action="store_false",
+            dest="build_explore",
+        )
+        parser.add_argument(
+            "--use-table-name",
+            help="add this flag to use table names on views and explore",
+            action="store_true",
+        )
+        parser.add_argument(
+            "--select", help="select a specific model to generate lookml for", type=str
+        )
+        parser.add_argument(
+            "--generate-locale",
+            help="Generate locale files for each label on each field in view",
+            action="store_true",
+        )
+        parser.add_argument(
+            "--hidden",
+            help="add this flag to force all dimensions and measures to be hidden",
+            action="store_true",  # on/off flag
+        )
 
-    logging.info(
-        f'Generated {len(lookml_views)} lookml views in {os.path.join(args.output_dir, "views")}'
-    )
+        parser.set_defaults(build_explore=True)
+        return parser
 
-    logging.info("Success")
+    def _write_lookml_file(
+        self,
+        output_dir: str,
+        file_path: str,
+        contents: str,
+    ) -> str:
+        """Write LookML content to a file."""
+        # Create directory structure
+
+        file_name = os.path.basename(file_path)
+        file_path = os.path.join(output_dir, file_path.split(file_name)[0])
+        os.makedirs(file_path, exist_ok=True)
+
+        file_path = f"{file_path}/{file_name}"
+
+        # Write contents
+        self._file_handler.write(file_path, contents)
+        logging.debug(f"Generated {file_path}")
+
+        return file_path
+
+    def generate(self, args, models):
+        """Generate LookML views from dbt models"""
+        logging.info("Parsing dbt models (bigquery) and creating lookml views...")
+
+        lookml_generator = LookmlGenerator(args)
+
+        views = []
+        for model in models:
+            file_path, lookml = lookml_generator.generate(
+                model=model,
+            )
+
+            view = self._write_lookml_file(
+                output_dir=args.output_dir,
+                file_path=file_path,
+                contents=lkml.dump(lookml),
+            )
+
+            views.append(view)
+
+        logging.info(f"Generated {len(views)} views")
+        logging.info("Success")
+
+    def parse(self, args):
+        """parse dbt models"""
+        raw_manifest = self._file_handler.read(
+            os.path.join(args.target_dir, "manifest.json")
+        )
+        raw_catalog = self._file_handler.read(
+            os.path.join(args.target_dir, "catalog.json")
+        )
+
+        parser = DbtParser(raw_manifest, raw_catalog)
+        return parser.get_models(args)
+
+    def run(self):
+        """Run the CLI"""
+        try:
+            args = self._args_parser.parse_args()
+            logging.getLogger().setLevel(args.log_level)
+
+            models = self.parse(args)
+            self.generate(args, models)
+
+        except CliError:
+            # Logs should already be printed by the handler
+            logging.error("Error occurred during generation. Stopped execution.")
+
+
+def main():
+    cli = Cli()
+    cli.run()
+
+
+if __name__ == "__main__":
+    main()

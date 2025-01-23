@@ -16,7 +16,7 @@ requires = [ "hatchling",]
 build-backend = "hatchling.build"
 
 [project.scripts]
-dbt2looker = "dbt2looker_bigquery.cli:run"
+dbt2looker = "dbt2looker_bigquery.cli:main"
 
 [tool.bumpversion]
 current_version = "0.13.2"

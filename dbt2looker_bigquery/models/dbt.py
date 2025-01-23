@@ -1,19 +1,20 @@
 import logging
-from enum import Enum
 from typing import Dict, List, Optional, Union
 
-from pydantic import field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from dbt2looker_bigquery import enums
+from dbt2looker_bigquery.schema import SchemaParser
 
 try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal
 
-import re
+from dbt2looker_bigquery.exceptions import UnsupportedDbtAdapterError
+from dbt2looker_bigquery.models.looker import DbtMetaLooker
 
-from pydantic import BaseModel, Field
-
-from . import looker_enums
+schema_parser = SchemaParser()
 
 
 def yes_no_validator(value: Union[bool, str]):
@@ -29,23 +30,29 @@ def yes_no_validator(value: Union[bool, str]):
         return None
 
 
-# dbt2looker utility types
-class UnsupportedDbtAdapterError(ValueError):
-    code = "unsupported_dbt_adapter"
-    msg_template = "{wrong_value} is not a supported dbt adapter"
-
-
-class SupportedDbtAdapters(str, Enum):
-    """Supported dbt adapters, only bigquery for now."""
-
-    bigquery = "bigquery"
-
-
 class DbtNode(BaseModel):
     """A dbt node. extensible to models, seeds, etc."""
 
+    name: str
     unique_id: str
-    resource_type: str
+    resource_type: Literal[
+        "model",
+        "seed",
+        "snapshot",
+        "analysis",
+        "test",
+        "operation",
+        "sql_operation",
+        "source",
+        "macro",
+        "exposure",
+        "metric",
+        "group",
+        "saved_query",
+        "semantic_model",
+        "unit_test",
+        "fixture",
+    ]
 
 
 class DbtExposureRef(BaseModel):
@@ -53,7 +60,17 @@ class DbtExposureRef(BaseModel):
 
     name: str
     package: Optional[str] = None
-    version: Optional[str] = None
+    version: Optional[Union[str, int]] = None
+
+
+class DbtDependsOn(BaseModel):
+    """A model for dependencies between dbt objects.
+
+    Contains lists of macros and nodes that an object depends on.
+    """
+
+    macros: List[str] = []
+    nodes: List[str] = []
 
 
 class DbtExposure(DbtNode):
@@ -63,6 +80,8 @@ class DbtExposure(DbtNode):
     description: Optional[str] = None
     url: Optional[str] = None
     refs: List[DbtExposureRef]
+    tags: Optional[List[str]] = []  # Adds exposure tags
+    depends_on: DbtDependsOn = DbtDependsOn()
 
 
 class DbtCatalogNodeMetadata(BaseModel):
@@ -80,38 +99,33 @@ class DbtCatalogNodeColumn(BaseModel):
 
     type: str
     data_type: Optional[str] = "MISSING"
-    inner_types: Optional[list[str]] = []
+    inner_types: Optional[List[str]] = []
     comment: Optional[str] = None
     index: int
     name: str
     # child_name: Optional[str]
     # parent: Optional[str]  # Added field to store the parent node
+    parent: Optional["DbtCatalogNodeColumn"] = None
 
     @model_validator(mode="before")
     @classmethod
     def validate_inner_type(cls, values):
-        type = values.get("type")
-        # Check if there is a non-None 'parent' and validate it.
-        pattern = re.compile(r"<(.*?)>")
-        matches = pattern.findall(type)
+        column_type = values.get("type")
 
         def truncate_before_character(string, character):
             # Find the position of the character in the string.
             pos = string.find(character)
 
             # If found, return everything up to that point.
-            if pos != -1:
-                return string[:pos]
+            return string[:pos] if pos != -1 else string
 
-            # If not found, return the original string.
-            return string
+        data_type = truncate_before_character(column_type, "<")
+        values["data_type"] = truncate_before_character(data_type, "(")
 
-        values["data_type"] = truncate_before_character(type, "<")
-        values["inner_types"] = [
-            item.strip() for match in matches for item in match.split(",")
-        ]
-        if len(matches) > 0:
-            logging.debug(f"Found inner types {values['inner_types']} in type {type}")
+        inner_types = schema_parser.parse(column_type)
+        if inner_types and inner_types != column_type:
+            values["inner_types"] = inner_types
+
         return values
 
 
@@ -133,7 +147,7 @@ class DbtCatalogNode(BaseModel):
     @classmethod
     def case_insensitive_column_names(cls, v: Dict[str, DbtCatalogNodeColumn]):
         return {
-            name.lower(): column.copy(update={"name": column.name.lower()})
+            name.lower(): column.model_copy(update={"name": column.name.lower()})
             for name, column in v.items()
         }
 
@@ -144,81 +158,24 @@ class DbtCatalog(BaseModel):
     nodes: Dict[str, DbtCatalogNode]
 
 
-class LookViewFile(BaseModel):
-    """A file in a looker view directory"""
-
-    filename: str
-    contents: str
-    db_schema: str = Field(..., alias="schema")
-
-
-class DbtMetaLooker(BaseModel):
-    """Looker-specific metadata for a dbt model"""
-
-    hidden: Optional[bool] = Field(default=None)
-    label: Optional[str] = Field(default=None)
-    group_label: Optional[str] = Field(default=None)
-    value_format_name: Optional[looker_enums.LookerValueFormatName] = Field(
-        default=None
-    )  # TODO - make validator not discard as much if a invalid value is given
-    timeframes: Optional[List[looker_enums.LookerTimeFrame]] = Field(
-        default=None
-    )  # TODO - make validator not discard as much if a invalid value is given
-
-
-class DbtMetaMeasure(DbtMetaLooker):
-    """A measure defined in a dbt model"""
-
-    type: looker_enums.LookerMeasureType = Field(default=None)
-    description: Optional[str] = Field(default=None, alias="description")
-    sql: Optional[str] = Field(default=None)
-    approximate: Optional[Union[bool, str]] = Field(default=None)
-    approximate_threshold: Optional[int] = Field(default=None)
-    allow_approximate_optimization: Optional[Union[bool, str]] = Field(default=None)
-    can_filter: Optional[Union[bool, str]] = Field(default=None)
-    tags: Optional[List[str]] = Field(default=None)
-    sql_distinct_key: Optional[str] = Field(default=None)
-    alias: Optional[str] = Field(default=None)
-    convert_tz: Optional[Union[bool, str]] = Field(default=None)
-    suggestable: Optional[Union[bool, str]] = Field(default=None)
-    precision: Optional[int] = Field(default=None)
-    percentile: Optional[Union[bool, str]] = Field(default=None)
-
-    @field_validator(
-        "approximate",
-        "allow_approximate_optimization",
-        "can_filter",
-        "convert_tz",
-        "suggestable",
-        "percentile",
-        mode="before",
-    )
-    def validate_yes_no_fields(cls, v):
-        return yes_no_validator(v)
-
-
-class DbtMetaDimension(DbtMetaLooker):
-    """a derived dimension defined in a dbt model"""
-
-
 class DbtModelColumnMeta(BaseModel):
     """Metadata about a column in a dbt model"""
 
     looker: Optional[DbtMetaLooker] = DbtMetaLooker()
-    looker_measures: Optional[List[DbtMetaMeasure]] = []
 
 
 class DbtModelColumn(BaseModel):
     """A column in a dbt model"""
 
     name: str
-    lookml_long_name: str
-    lookml_name: str
+    lookml_long_name: Optional[str] = ""
+    lookml_name: Optional[str] = ""
     description: Optional[str] = None
     data_type: Optional[str] = None
-    inner_types: Optional[list[str]] = None
+    inner_types: list[str] = []
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
+    is_primary_key: Optional[bool] = False
 
     # Root validator
     @model_validator(mode="before")
@@ -238,26 +195,30 @@ class DbtModelColumn(BaseModel):
         # If the field is an array, it's a nested field
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def set_primary_key(cls, values):
+        constraints = values.get("constraints", [])
 
-class DbtModelMetaLooker(DbtMetaLooker):
-    """Looker-specific metadata about a dbt model"""
+        # if there is a primary key in constraints
+        if {"type": "primary_key"} in constraints:
+            logging.debug("Found primary key on %s model", values["name"])
+            values["is_primary_key"] = True
 
-    label: Optional[str] = None
-    hidden: Optional[Union[bool, str]] = Field(default=None)
-
-    @field_validator("hidden", mode="before")
-    def validate_yes_no_fields(cls, v):
-        return yes_no_validator(v)
+        return values
 
 
 class DbtModelMeta(BaseModel):
     """Metadata about a dbt model"""
 
-    looker: Optional[DbtModelMetaLooker] = None
+    looker: Optional[DbtMetaLooker] = DbtMetaLooker()
 
 
 class DbtModel(DbtNode):
-    """A dbt model"""
+    """A dbt model representing a SQL transformation.
+
+    Contains information about the model's structure, columns, and metadata.
+    """
 
     resource_type: Literal["model"]
     relation_name: str
@@ -267,10 +228,12 @@ class DbtModel(DbtNode):
     columns: Dict[str, DbtModelColumn]
     tags: List[str]
     meta: DbtModelMeta
+    path: str
 
     @field_validator("columns")
     @classmethod
     def case_insensitive_column_names(cls, v: Dict[str, DbtModelColumn]):
+        """Convert all column names to lowercase for case-insensitive matching."""
         new_columns = {}
         for name, column in v.items():
             # Skip the entry if the name is not a string
@@ -279,37 +242,44 @@ class DbtModel(DbtNode):
             # Skip the entry if the column is a dict, not a DbtModelColumn instance
             if isinstance(column, dict):
                 new_columns[name] = column
-            else:
-                # Ensure the column is a DbtModelColumn instance before proceeding
-                if not isinstance(column, DbtModelColumn):
-                    raise TypeError(
-                        f"The value for key {name} is not a DbtModelColumn instance."
-                    )
+            elif isinstance(column, DbtModelColumn):
                 # Lowercase the name and update the column name
-                new_columns[name.lower()] = column.copy(
+                new_columns[name.lower()] = column.model_copy(
                     update={"name": column.name.lower()}
+                )
+            else:
+                raise TypeError(
+                    f"The value for key {name} is not a DbtModelColumn instance."
                 )
         return new_columns
 
 
 class DbtManifestMetadata(BaseModel):
+    """Metadata about a dbt manifest.
+
+    Contains information about the dbt adapter type and ensures it's supported.
+    """
+
     adapter_type: str
 
     @field_validator("adapter_type")
     @classmethod
     def adapter_must_be_supported(cls, v):
-        try:
-            SupportedDbtAdapters(v)
-        except ValueError:
-            raise UnsupportedDbtAdapterError(wrong_value=v)
+        """Validate that the adapter type is supported."""
+        if v not in enums.SupportedDbtAdapters:
+            raise UnsupportedDbtAdapterError(
+                f"Adapter type {v} is not supported. "
+                f"Supported adapters are: {[e.value for e in enums.SupportedDbtAdapters]}"
+            )
         return v
 
 
 class DbtManifest(BaseModel):
+    """A dbt manifest containing nodes, metadata, and exposures.
+
+    The manifest is the main entry point for accessing dbt project information.
+    """
+
     nodes: Dict[str, Union[DbtModel, DbtNode]]
     metadata: DbtManifestMetadata
     exposures: Dict[str, DbtExposure]
-
-
-class HiddenDimension:
-    is_hidden = False
