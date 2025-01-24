@@ -5,7 +5,7 @@ from dbt2looker_bigquery.cli import Cli
 
 
 class TestIntegration:
-    def test_integration_hidden(self):
+    def test_integration_hidden_count(self):
         # Initialize and run CLI
         cli = Cli()
         parser = cli._init_argparser()
@@ -32,7 +32,7 @@ class TestIntegration:
             5,
         )
 
-    def test_integration_all_hidden(self):
+    def test_integration_all_hidden_count(self):
         # Initialize and run CLI
         cli = Cli()
         parser = cli._init_argparser()
@@ -138,6 +138,114 @@ class TestIntegration:
             3,
         )
 
+    def test_integration_view_1_count(self):
+        # Initialize and run CLI
+        cli = Cli()
+        parser = cli._init_argparser()
+        args = parser.parse_args(
+            [
+                "--target-dir",
+                "tests/fixtures",
+                "--output-dir",
+                "output/tests/",
+                "--select",
+                "example_retail_data__fact_daily_sales",
+                "--folder-structure",
+                "DBT_FOLDER",
+                "--implicit-primary-key",
+            ]
+        )
+
+        self._assert_integration_test(
+            cli,
+            args,
+            "output/tests/example/retail_data/example_retail_data__fact_daily_sales.view.lkml",
+            "view: example_retail_data__fact_daily_sales {",
+            "count",
+            1,
+        )
+
+    def test_integration_view_count_number(self):
+        # Initialize and run CLI
+        cli = Cli()
+        parser = cli._init_argparser()
+        args = parser.parse_args(
+            [
+                "--target-dir",
+                "tests/fixtures",
+                "--output-dir",
+                "output/tests/",
+                "--select",
+                "example_retail_data__fact_daily_sales",
+                "--folder-structure",
+                "DBT_FOLDER",
+                "--implicit-primary-key",
+            ]
+        )
+
+        self._assert_integration_test(
+            cli,
+            args,
+            "output/tests/example/retail_data/example_retail_data__fact_daily_sales.view.lkml",
+            "view:",
+            "count",
+            4,
+        )
+
+    def test_integration_matching_join_view_naming(self):
+        # Initialize and run CLI
+        cli = Cli()
+        parser = cli._init_argparser()
+        args = parser.parse_args(
+            [
+                "--target-dir",
+                "tests/fixtures",
+                "--output-dir",
+                "output/tests/",
+                "--select",
+                "example_retail_data__fact_daily_sales",
+                "--folder-structure",
+                "DBT_FOLDER",
+                "--implicit-primary-key",
+            ]
+        )
+
+        self._assert_integration_test(
+            cli,
+            args,
+            "output/tests/example/retail_data/example_retail_data__fact_daily_sales.view.lkml",
+            "view: example_retail_data__fact_daily_sales__sales__fact_transaction_keys {",
+            "both_once",
+            "join: example_retail_data__fact_daily_sales__sales__fact_transaction_keys {",
+        )
+
+    def test_integration_required_joins_count(self):
+        # Initialize and run CLI
+        cli = Cli()
+        parser = cli._init_argparser()
+        args = parser.parse_args(
+            [
+                "--target-dir",
+                "tests/fixtures",
+                "--output-dir",
+                "output/tests/",
+                "--select",
+                "example_retail_data__fact_daily_sales",
+                "--folder-structure",
+                "DBT_FOLDER",
+                "--implicit-primary-key",
+            ]
+        )
+
+        self._assert_integration_test(
+            cli,
+            args,
+            "output/tests/example/retail_data/example_retail_data__fact_daily_sales.view.lkml",
+            "required_joins: [example_retail_data__fact_daily_sales__sales]",
+            "count",
+            1,
+        )
+
     def _assert_integration_test(
         self, cli, args, file_path, pattern: str, test: str, param=1
     ):
@@ -150,6 +258,11 @@ class TestIntegration:
             assert pattern not in content
         elif test == "count":
             assert content.count(pattern) == param
+        elif test == "both_once":
+            assert content.count(pattern) == 1
+            assert content.count(param) == 1
+        else:
+            raise ValueError("Invalid test type")
 
         from rich import print
 

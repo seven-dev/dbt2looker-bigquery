@@ -150,13 +150,11 @@ class LookmlDimensionGenerator:
         dimensions = []
         dimension_group = {
             "name": column_name_adjusted,
-            "label": self._format_label(column.lookml_name),
             "type": looker_type,
             "sql": sql,
             "description": column.description,
             "datatype": map_bigquery_to_looker(column.data_type),
             "timeframes": timeframes,
-            "group_label": f"{self._format_label(column.lookml_name)}",
             "convert_tz": convert_tz,
         }
         self._apply_meta_looker_attributes(

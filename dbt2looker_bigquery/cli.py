@@ -68,11 +68,6 @@ class Cli:
             type=str,
         )
         parser.add_argument(
-            "--remove-schema-string",
-            help="string to remove from folder name when generating lookml files",
-            type=str,
-        )
-        parser.add_argument(
             "--exposures-only",
             help="add this flag to only generate lookml files for exposures",
             action="store_true",

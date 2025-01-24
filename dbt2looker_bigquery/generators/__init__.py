@@ -31,7 +31,7 @@ class LookmlGenerator:
         # Fall back to model name if available
         return model.name.replace("_", " ").title() if hasattr(model, "name") else None
 
-    def _get_file_path(self, model: DbtModel, view_name: str) -> str:
+    def _get_file_path(self, model: DbtModel, base_view_name: str) -> str:
         """Get the file path for the LookML view."""
         if self._cli_args.folder_structure == "BIGQUERY_DATASET":
             file_path = model.db_schema
@@ -45,7 +45,7 @@ class LookmlGenerator:
         if self._cli_args.use_table_name:
             file_name = model.relation_name.split(".")[-1].strip("`")
         else:
-            file_name = view_name
+            file_name = base_view_name
 
         return f"{file_path}/{file_name}.view.lkml"
 
@@ -53,21 +53,21 @@ class LookmlGenerator:
         """Generate LookML for a model."""
 
         # Get view name
-        view_name = (
+        base_view_name = (
             model.relation_name.split(".")[-1].strip("`")
             if self._cli_args.use_table_name
             else model.name
         )
         # Get view label
-        view_label = self._get_view_label(model)
+        base_view_label = self._get_view_label(model)
 
         grouped_columns = self.structure_generator.generate(model)
 
         # Create views
         views = self.view_generator.generate(
             model=model,
-            view_name=view_name,
-            view_label=view_label,
+            base_view_name=base_view_name,
+            base_view_label=base_view_label,
             dimension_generator=self.dimension_generator,
             measure_generator=self.measure_generator,
             grouped_columns=grouped_columns,
@@ -85,14 +85,14 @@ class LookmlGenerator:
             # Create explore
             explore = self.explore_generator.generate(
                 model=model,
-                view_name=view_name,
-                view_label=view_label,
+                base_view_name=base_view_name,
+                base_view_label=base_view_label,
                 grouped_columns=grouped_columns,
             )
             if explore:
                 lookml["explore"] = explore
 
-        return self._get_file_path(model, view_name), lookml
+        return self._get_file_path(model, base_view_name), lookml
 
 
 __all__ = ["LookmlGenerator"]

@@ -3,6 +3,7 @@
 from typing import Dict
 
 from dbt2looker_bigquery.models.dbt import DbtModel
+from dbt2looker_bigquery.utils import DotManipulation
 
 
 class LookmlViewGenerator:
@@ -10,6 +11,7 @@ class LookmlViewGenerator:
 
     def __init__(self, args):
         self._cli_args = args
+        self._dot = DotManipulation()
 
     def _create_view(
         self,
@@ -61,16 +63,30 @@ class LookmlViewGenerator:
     def generate(
         self,
         model: DbtModel,
-        view_name: str,
-        view_label: str,
+        base_view_name: str,
+        base_view_label: str,
         dimension_generator,
         measure_generator,
         grouped_columns: dict,
     ) -> Dict:
         """Generate a view for a model."""
         views = []
+
         for key, column_list in grouped_columns.items():
+            prepath = key[1]
             depth = key[0]
+
+            view_name = (
+                self._dot.remove_dots(f"{base_view_name}.{prepath}")
+                if prepath
+                else base_view_name
+            )
+            view_label = (
+                self._dot.textualize_dots(f"{base_view_label} : {prepath}")
+                if prepath
+                else base_view_label
+            )
+
             view = self._create_view(
                 model,
                 depth,

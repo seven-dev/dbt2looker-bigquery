@@ -1,6 +1,7 @@
 """LookML explore generator module."""
 
 from dbt2looker_bigquery.models.dbt import DbtModel
+from dbt2looker_bigquery.utils import DotManipulation
 
 
 class LookmlExploreGenerator:
@@ -8,36 +9,7 @@ class LookmlExploreGenerator:
 
     def __init__(self, args):
         self._cli_args = args
-
-    def last_dot_only(self, input_string):
-        """replace all but the last period with a replacement string
-        this is used to create unique names for joins
-        """
-        sign = "."
-        replacement = "__"
-
-        # Splitting input_string into parts separated by sign (period)
-        parts = input_string.split(sign)
-
-        # If there's more than one part, we need to do replacements.
-        if len(parts) > 1:
-            # Joining all parts except for last with replacement,
-            # and then adding back on final part.
-            output_string = replacement.join(parts[:-1]) + sign + parts[-1]
-
-            return output_string
-
-        # If there are no signs at all or just one part,
-        return input_string
-
-    def remove_dots(self, input_string):
-        """replace all periods with a replacement string
-        this is used to create unique names for joins
-        """
-        sign = "."
-        replacement = "__"
-
-        return input_string.replace(sign, replacement)
+        self._dot = DotManipulation()
 
     def get_reduced_paths(self, input_string):
         # Split the input string by periods
@@ -49,7 +21,7 @@ class LookmlExploreGenerator:
         # Construct the reduced paths from the parts
         for i in range(len(parts) - 1, 0, -1):
             reduced_path = ".".join(parts[:i])
-            result.append(self.remove_dots(reduced_path))
+            result.append(self._dot.remove_dots(reduced_path))
 
         return result
 
@@ -67,8 +39,8 @@ class LookmlExploreGenerator:
             if depth > 0:
                 prepath = key[1]
                 view_base = f"{base_name}.{prepath}"
-                view_name = self.remove_dots(view_base)
-                join_name = self.last_dot_only(view_base)
+                view_name = self._dot.remove_dots(view_base)
+                join_name = self._dot.last_dot_only(view_base)
                 join_sql = f"LEFT JOIN UNNEST(${{{join_name}}}) AS {view_name}"
 
                 depth = key[0]
@@ -90,7 +62,11 @@ class LookmlExploreGenerator:
         return join_list
 
     def generate(
-        self, model: DbtModel, view_name: str, view_label: str, grouped_columns: dict
+        self,
+        model: DbtModel,
+        base_view_name: str,
+        base_view_label: str,
+        grouped_columns: dict,
     ) -> dict:
         """Create the explore definition."""
         # default behavior is to hide the view
@@ -104,9 +80,8 @@ class LookmlExploreGenerator:
 
         # Create explore
         explore = {
-            "name": view_name,
-            "label": view_label,
-            "from": view_name,
+            "name": base_view_name,
+            "label": base_view_label,
             "hidden": hidden,
         }
 
