@@ -12,7 +12,7 @@ except ImportError:
     from typing_extensions import Literal
 
 from dbt2looker_bigquery.exceptions import UnsupportedDbtAdapterError
-from dbt2looker_bigquery.models.looker import DbtMetaLooker
+from dbt2looker_bigquery.models.looker import DbtMetaLooker, DbtMetaLookerDimension
 
 schema_parser = SchemaParser()
 
@@ -161,7 +161,7 @@ class DbtCatalog(BaseModel):
 class DbtModelColumnMeta(BaseModel):
     """Metadata about a column in a dbt model"""
 
-    looker: Optional[DbtMetaLooker] = DbtMetaLooker()
+    looker: Optional[DbtMetaLookerDimension] = DbtMetaLookerDimension()
 
 
 class DbtModelColumn(BaseModel):
