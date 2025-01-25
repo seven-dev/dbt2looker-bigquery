@@ -3,9 +3,9 @@ import logging
 from pydantic import BaseModel, Field, model_validator
 
 from dbt2looker_bigquery.enums import (
-    LookerJoinType,
+    # LookerJoinType,
     LookerMeasureType,
-    LookerRelationshipType,
+    # LookerRelationshipType,
     LookerTimeFrame,
     LookerValueFormatName,
 )
@@ -21,11 +21,15 @@ class LookViewFile(BaseModel):
 
 class DbtMetaLookerBase(BaseModel):
     label: Optional[str] = None
-    description: Optional[str] = None
     hidden: Optional[bool] = None
 
 
-class DbtMetaLookerDimension(DbtMetaLookerBase):
+class DbtMetaLookerBaseDescribable(DbtMetaLookerBase):
+    description: Optional[str] = None
+    group_label: Optional[str] = None
+
+
+class DbtMetaLookerDimension(DbtMetaLookerBaseDescribable):
     """Looker-specific metadata for a dimension on a dbt model column
 
     meta:
@@ -80,7 +84,7 @@ class DbtMetaLookerMeasureFilter(BaseModel):
     filter_expression: str
 
 
-class DbtMetaLookerMeasure(DbtMetaLookerBase):
+class DbtMetaLookerMeasure(DbtMetaLookerBaseDescribable):
     """Looker metadata for a measure."""
 
     # Required fields
@@ -148,31 +152,46 @@ class DbtMetaLookerMeasure(DbtMetaLookerBase):
         return values
 
 
-class DbtMetaLookerJoin(BaseModel):
-    """Looker-specific metadata for joins on a dbt model
+class DbtMetaLookerDerivedMeasure(DbtMetaLookerMeasure):
+    """Looker metadata for a derived measure."""
 
-    meta:
-      looker:
-        description: "Page views for Hubble landing page"
-        label: "Page Views"
-        joins:
-          - join: users                               # Reference another dbt model to join to
-            sql_on: "${users.id} = ${pages.user_id}"  # Sql string containing join clause
-            type: left_outer                          # Optional - left_outer is default
-            relationship: many_to_one                 # Relationship type
-    """
-
-    join_model: Optional[str] = Field(default=None)
-    sql_on: Optional[str] = Field(default=None)
-    type: Optional[LookerJoinType] = Field(default=None)
-    relationship: Optional[LookerRelationshipType] = Field(default=None)
+    sql: str
 
 
-class DbtMetaLooker(BaseModel):
+class DbtMetaLookerDerivedDimension(DbtMetaLookerDimension):
+    """Looker metadata for a derived dimension."""
+
+    sql: str
+
+
+# class DbtMetaLookerJoin(BaseModel):
+#     """Looker-specific metadata for joins on a dbt model
+
+#     meta:
+#       looker:
+#         description: "Page views for Hubble landing page"
+#         label: "Page Views"
+#         joins:
+#           - join: users                               # Reference another dbt model to join to
+#             sql_on: "${users.id} = ${pages.user_id}"  # Sql string containing join clause
+#             type: left_outer                          # Optional - left_outer is default
+#             relationship: many_to_one                 # Relationship type
+#     """
+
+#     join_model: Optional[str] = Field(default=None)
+#     sql_on: Optional[str] = Field(default=None)
+#     type: Optional[LookerJoinType] = Field(default=None)
+#     relationship: Optional[LookerRelationshipType] = Field(default=None)
+
+
+class DbtMetaLooker(DbtMetaLookerBase):
     """Looker metadata for a model."""
 
+    measures: Optional[List[DbtMetaLookerDerivedMeasure]] = Field(default=[])
+    dimensions: Optional[List[DbtMetaLookerDerivedDimension]] = Field(default=[])
+
     # Component fields
-    view: Optional[DbtMetaLookerBase] = None
-    dimension: Optional[DbtMetaLookerDimension] = None
-    measures: Optional[List[DbtMetaLookerMeasure]] = Field(default=[])
-    joins: Optional[List[DbtMetaLookerJoin]] = Field(default=[])
+    # view: Optional[DbtMetaLookerBase] = None
+    # dimension: Optional[DbtMetaLookerDimension] = None
+    # measures: Optional[List[DbtMetaLookerMeasure]] = Field(default=[])
+    # joins: Optional[List[DbtMetaLookerJoin]] = Field(default=[])

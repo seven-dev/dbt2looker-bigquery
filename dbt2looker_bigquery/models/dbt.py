@@ -162,6 +162,7 @@ class DbtModelColumnMeta(BaseModel):
     """Metadata about a column in a dbt model"""
 
     looker: Optional[DbtMetaLookerDimension] = DbtMetaLookerDimension()
+    looker_measures: Optional[List[DbtMetaLooker]] = []
 
 
 class DbtModelColumn(BaseModel):
