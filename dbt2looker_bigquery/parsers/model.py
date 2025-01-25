@@ -25,6 +25,9 @@ class ModelParser:
                 )
                 continue
 
+        if len(all_models) == 0:
+            logging.warning("No models found in manifest")
+
         return all_models
 
     def filter_models(

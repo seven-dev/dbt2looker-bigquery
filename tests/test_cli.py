@@ -31,7 +31,7 @@ def test_skip_explore_flag():
 
     # With --skip-explore
     args = parser.parse_args(
-        ["--target-dir", "target", "--output-dir", "output", "--skip-explore"]
+        ["--target-dir", "target/standard", "--output-dir", "output", "--skip-explore"]
     )
     assert args.build_explore is False
 

@@ -6,13 +6,12 @@ from dbt2looker_bigquery.cli import Cli
 
 class TestIntegration:
     def test_integration_hidden_count(self):
-        # Initialize and run CLI
         cli = Cli()
         parser = cli._init_argparser()
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -32,6 +31,58 @@ class TestIntegration:
             5,
         )
 
+    def test_integration_label_count(self):
+        cli = Cli()
+        parser = cli._init_argparser()
+        args = parser.parse_args(
+            [
+                "--target-dir",
+                "tests/fixtures/labelled",
+                "--output-dir",
+                "output/tests/",
+                "--select",
+                "",
+                "--use-table-name",
+                "--folder-structure",
+                "DBT_FOLDER",
+            ]
+        )
+
+        self._assert_integration_test(
+            cli,
+            args,
+            "output/tests/example/retail_data/fact_daily_sales_v1.view.lkml",
+            "group_label:",
+            "count",
+            5,
+        )
+
+    def test_integration_group_label_count(self):
+        cli = Cli()
+        parser = cli._init_argparser()
+        args = parser.parse_args(
+            [
+                "--target-dir",
+                "tests/fixtures/labelled",
+                "--output-dir",
+                "output/tests/",
+                "--select",
+                "",
+                "--use-table-name",
+                "--folder-structure",
+                "DBT_FOLDER",
+            ]
+        )
+
+        self._assert_integration_test(
+            cli,
+            args,
+            "output/tests/example/retail_data/fact_daily_sales_v1.view.lkml",
+            "label:",
+            "count",
+            3,
+        )
+
     def test_integration_all_hidden_count(self):
         # Initialize and run CLI
         cli = Cli()
@@ -39,7 +90,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -67,7 +118,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -93,7 +144,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -118,7 +169,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -145,7 +196,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -172,7 +223,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -199,7 +250,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
@@ -226,7 +277,7 @@ class TestIntegration:
         args = parser.parse_args(
             [
                 "--target-dir",
-                "tests/fixtures",
+                "tests/fixtures/standard",
                 "--output-dir",
                 "output/tests/",
                 "--select",
