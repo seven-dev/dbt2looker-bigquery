@@ -40,8 +40,6 @@ class TestIntegration:
                 "tests/fixtures/labelled",
                 "--output-dir",
                 "output/tests/",
-                "--select",
-                "",
                 "--use-table-name",
                 "--folder-structure",
                 "DBT_FOLDER",
@@ -51,10 +49,10 @@ class TestIntegration:
         self._assert_integration_test(
             cli,
             args,
-            "output/tests/example/retail_data/fact_daily_sales_v1.view.lkml",
-            "group_label:",
+            "output/tests/tv/serve_tv_data.view.lkml",
+            "label:",
             "count",
-            5,
+            50,
         )
 
     def test_integration_group_label_count(self):
@@ -77,10 +75,10 @@ class TestIntegration:
         self._assert_integration_test(
             cli,
             args,
-            "output/tests/example/retail_data/fact_daily_sales_v1.view.lkml",
-            "label:",
+            "output/tests/tv/serve_tv_data.view.lkml",
+            "group_label: ",
             "count",
-            3,
+            21,
         )
 
     def test_integration_all_hidden_count(self):

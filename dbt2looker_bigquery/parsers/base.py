@@ -1,7 +1,7 @@
 """Base DBT parser functionality."""
 
 from typing import Dict, List
-
+import logging
 from dbt2looker_bigquery.models.dbt import DbtCatalog, DbtManifest, DbtModel
 from dbt2looker_bigquery.parsers.catalog import CatalogParser
 from dbt2looker_bigquery.parsers.exposure import ExposureParser
@@ -26,17 +26,14 @@ class DbtParser:
 
         # Get exposed models if needed
         exposed_names = None
-        if (
-            hasattr(args, "exposures_only")
-            and args.exposures_only
-            or hasattr(args, "exposures_tag")
-            and args.exposures_tag
-            or hasattr(args, "build_explore")
-            and args.build_explore
+        if (hasattr(args, "exposures_only") and args.exposures_only) or (
+            hasattr(args, "exposures_tag") and args.exposures_tag
         ):
             exposed_names = self._exposure_parser.get_exposures(
                 args.exposures_tag if hasattr(args, "exposures_tag") else None
             )
+        if exposed_names:
+            logging.debug(f"Exposures found: {exposed_names}")
 
         # Filter models based on criteria
         filtered_models = self._model_parser.filter_models(

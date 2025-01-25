@@ -51,7 +51,7 @@ class Cli:
         )
         parser.add_argument(
             "--tag",
-            help="Filter to dbt models using this tag",
+            help="Filter to dbt models using this tag, can be combined with --exposures-only to only generate lookml files for exposures with this tag",
             type=str,
         )
         parser.add_argument(
@@ -74,8 +74,9 @@ class Cli:
         )
         parser.add_argument(
             "--exposures-tag",
-            help="add this flag to only generate lookml files for specific tag in exposures",
+            help="add this flag to only generate lookml files for exposures with this tag (not the same as model tags)",
             type=str,
+            default=None,
         )
         parser.add_argument(
             "--skip-explore",
@@ -89,7 +90,9 @@ class Cli:
             action="store_true",
         )
         parser.add_argument(
-            "--select", help="select a specific model to generate lookml for", type=str
+            "--select",
+            help="select a specific model to generate lookml for, ignores tag and explore",
+            type=str,
         )
         parser.add_argument(
             "--generate-locale",

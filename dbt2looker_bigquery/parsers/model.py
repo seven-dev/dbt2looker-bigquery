@@ -27,6 +27,8 @@ class ModelParser:
 
         if len(all_models) == 0:
             logging.warning("No models found in manifest")
+        else:
+            logging.debug(f"Found {len(all_models)} models in manifest")
 
         return all_models
 
@@ -45,10 +47,10 @@ class ModelParser:
 
         if tag:
             filtered = [model for model in filtered if self._tags_match(tag, model)]
-
+        logging.debug(f"Filtered models after tag: {len(filtered)}")
         if exposed_names:
             filtered = [model for model in filtered if model.name in exposed_names]
-
+        logging.debug(f"Filtered models after exposures: {len(filtered)}")
         return filtered
 
     def _filter_nodes_by_type(self, nodes: Dict, resource_type: str) -> List[DbtModel]:

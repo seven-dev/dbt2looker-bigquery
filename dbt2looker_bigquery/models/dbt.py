@@ -196,17 +196,17 @@ class DbtModelColumn(BaseModel):
         # If the field is an array, it's a nested field
         return values
 
-    # @model_validator(mode="before")
-    # @classmethod
-    # def set_primary_key(cls, values):
-    #     constraints = values.get("constraints", [])
+    @model_validator(mode="before")
+    @classmethod
+    def set_primary_key(cls, values):
+        constraints = values.get("constraints", [])
 
-    #     # if there is a primary key in constraints
-    #     if {"type": "primary_key"} in constraints:
-    #         logging.debug("Found primary key on %s model", values["name"])
-    #         values["is_primary_key"] = True
+        # if there is a primary key in constraints
+        if {"type": "primary_key"} in constraints:
+            logging.debug("Found primary key on %s model", values["name"])
+            values["is_primary_key"] = True
 
-    #     return values
+        return values
 
 
 class DbtModelMeta(BaseModel):

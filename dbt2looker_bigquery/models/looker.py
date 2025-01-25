@@ -1,5 +1,5 @@
 from typing import List, Optional, Union
-
+import logging
 from pydantic import BaseModel, Field, model_validator
 
 from dbt2looker_bigquery.enums import (
@@ -37,7 +37,7 @@ class DbtMetaLookerDimension(DbtMetaLookerBase):
                 description: "Blog Info"
                 value_format_name: decimal_0
                 filters:
-                  - path: "/blog%"
+                    - path: "/blog%"
 
     """
 
@@ -46,6 +46,33 @@ class DbtMetaLookerDimension(DbtMetaLookerBase):
     value_format_name: Optional[LookerValueFormatName] = Field(default=None)
     timeframes: Optional[List[LookerTimeFrame]] = Field(default=None)
     can_filter: Optional[Union[bool, str]] = Field(default=None)
+
+    @model_validator(mode="before")
+    def check_enums(cls, values):
+        # Check if the value for `value_format_name` is valid
+        value_format_name = values.get("value_format_name")
+        if value_format_name and not isinstance(
+            value_format_name, LookerValueFormatName
+        ):
+            logging.warning(
+                f"Invalid value for value_format_name: {value_format_name}. It will be excluded."
+            )
+            values.pop("value_format_name", None)
+
+        # Check if values for `timeframes` are valid
+        timeframes = values.get("timeframes", [])
+        if timeframes:
+            valid_timeframes = [
+                tf for tf in timeframes if isinstance(tf, LookerTimeFrame)
+            ]
+            if len(valid_timeframes) < len(timeframes):
+                invalid_timeframes = set(timeframes) - set(valid_timeframes)
+                logging.warning(
+                    f"Invalid values for timeframes: {invalid_timeframes}. They will be excluded."
+                )
+                values["timeframes"] = valid_timeframes
+
+        return values
 
 
 class DbtMetaLookerMeasureFilter(BaseModel):
@@ -72,19 +99,33 @@ class DbtMetaLookerMeasure(DbtMetaLookerBase):
     sql_distinct_key: Optional[str] = None  # For count_distinct
     percentile: Optional[int] = None  # For percentile measures
 
-    @model_validator(mode="after")
-    def validate_measure_attributes(self) -> "DbtMetaLookerMeasure":
+    @model_validator(mode="before")
+    def check_enums(cls, values):
+        # Validate value_format_name
+        value_format_name = values.get("value_format_name")
+        if value_format_name and not isinstance(
+            value_format_name, LookerValueFormatName
+        ):
+            logging.warning(
+                f"Invalid value for value_format_name: {value_format_name}. It will be excluded."
+            )
+            values.pop("value_format_name", None)
+
+        return values
+
+    @model_validator(mode="before")
+    def validate_measure_attributes(cls, values):
         """Validate that measure attributes are compatible with the measure type."""
-        measure_type = self.type
+        measure_type = values.get("type")
 
         # Validate type-specific attributes
         if (
             any(
                 v is not None
                 for v in [
-                    self.approximate,
-                    self.approximate_threshold,
-                    self.sql_distinct_key,
+                    values.get("approximate"),
+                    values.get("approximate_threshold"),
+                    values.get("sql_distinct_key"),
                 ]
             )
             and measure_type != LookerMeasureType.COUNT_DISTINCT
@@ -93,18 +134,18 @@ class DbtMetaLookerMeasure(DbtMetaLookerBase):
                 "approximate, approximate_threshold, and sql_distinct_key can only be used with count_distinct measures"
             )
 
-        if self.percentile is not None and not measure_type.value.startswith(
+        if values.get("percentile") is not None and not measure_type.value.startswith(
             "percentile"
         ):
             raise ValueError("percentile can only be used with percentile measures")
 
-        if self.precision is not None and measure_type not in [
+        if values.get("precision") is not None and measure_type not in [
             LookerMeasureType.AVERAGE,
             LookerMeasureType.SUM,
         ]:
             raise ValueError("precision can only be used with average or sum measures")
 
-        return self
+        return values
 
 
 class DbtMetaLookerJoin(BaseModel):
