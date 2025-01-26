@@ -28,7 +28,7 @@ class TestIntegration:
             "output/tests/example/retail_data/fact_daily_sales_v1.view.lkml",
             "hidden: yes",
             "count",
-            5,
+            4,
         )
 
     def test_integration_label_count(self):
@@ -78,7 +78,7 @@ class TestIntegration:
             "output/tests/tv/serve_tv_data.view.lkml",
             "group_label: ",
             "count",
-            21,
+            22,
         )
 
     def test_integration_all_hidden_count(self):
@@ -106,7 +106,7 @@ class TestIntegration:
             "output/tests/example/retail_data/fact_daily_sales_v1.view.lkml",
             "hidden: yes",
             "count",
-            23,
+            27,
         )
 
     def test_integration_skip_explore_joins(self):

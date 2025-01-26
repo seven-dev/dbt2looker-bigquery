@@ -2,6 +2,7 @@
 
 from dbt2looker_bigquery.models.dbt import DbtModel
 from dbt2looker_bigquery.utils import DotManipulation, StructureGenerator
+from dbt2looker_bigquery.generators.utils import MetaAttributeApplier
 
 
 class LookmlExploreGenerator:
@@ -11,8 +12,10 @@ class LookmlExploreGenerator:
         self._cli_args = args
         self._dot = DotManipulation()
         self._structure_generator = StructureGenerator(args)
+        self._applier = MetaAttributeApplier(args)
 
-    def get_reduced_paths(self, input_string):
+    def _get_reduced_paths(self, input_string, base):
+        """Make a list of reduced paths from the input string."""
         # Split the input string by periods
         parts = input_string.split(".")
 
@@ -22,18 +25,14 @@ class LookmlExploreGenerator:
         # Construct the reduced paths from the parts
         for i in range(len(parts) - 1, 0, -1):
             reduced_path = ".".join(parts[:i])
-            result.append(self._dot.remove_dots(reduced_path))
+            result.append(self._dot.remove_dots(f"{base}.{reduced_path}"))
 
         return result
 
-    def generate_joins(self, model, structure):
+    def generate_joins(self, model: DbtModel, structure):
         join_list = []
 
-        base_name = (
-            model.relation_name.split(".")[-1].strip("`")
-            if self._cli_args.use_table_name
-            else model.name
-        )
+        base_name = model.name
 
         for key, _ in structure.items():
             depth = key[0]
@@ -46,7 +45,7 @@ class LookmlExploreGenerator:
 
                 depth = key[0]
                 if depth > 1:
-                    required_joins = self.get_reduced_paths(prepath)
+                    required_joins = self._get_reduced_paths(prepath, base_name)
                 else:
                     required_joins = []
 
@@ -65,26 +64,18 @@ class LookmlExploreGenerator:
     def generate(
         self,
         model: DbtModel,
-        base_view_name: str,
-        base_view_label: str,
     ) -> dict:
         """Create the explore definition."""
         # default behavior is to hide the view
-        hidden = "yes"
-        if (
-            hasattr(model, "meta")
-            and hasattr(model.meta, "looker")
-            and hasattr(model.meta.looker, "view")
-            and hasattr(model.meta.looker.view, "hidden")
-        ):
-            hidden = "no" if not model.meta.looker.view.hidden else "yes"
 
         # Create explore
         explore = {
-            "name": base_view_name,
-            "label": base_view_label,
-            "hidden": hidden,
+            "name": model.name,
+            "hidden": "yes",
         }
+        self._applier.apply_meta_attributes(
+            explore, model, ["label", "hidden"], "meta.looker.explore"
+        )
 
         grouped_columns = self._structure_generator.process_model(model)
 

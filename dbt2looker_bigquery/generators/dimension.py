@@ -9,7 +9,11 @@ from dbt2looker_bigquery.enums import (
     LookerScalarTypes,
     LookerTimeTimeframes,
 )
-from dbt2looker_bigquery.generators.utils import get_column_name, map_bigquery_to_looker
+from dbt2looker_bigquery.generators.utils import (
+    get_column_name,
+    map_bigquery_to_looker,
+    MetaAttributeApplier,
+)
 from dbt2looker_bigquery.models.dbt import DbtModel, DbtModelColumn
 
 
@@ -18,11 +22,12 @@ class LookmlDimensionGenerator:
 
     def __init__(self, args):
         self._cli_args = args
+        self._applier = MetaAttributeApplier(args)
 
     def _format_label(self, name: str | None, remove_date: bool = True) -> str:
+        """Format a name into a human-readable label."""
         if name is None:
             return ""
-        """Format a name into a human-readable label."""
         if remove_date:
             suffix = "_date"
             if name.endswith(suffix):
@@ -35,29 +40,6 @@ class LookmlDimensionGenerator:
         if name.endswith(suffix):
             name = name[: -len(suffix)]
         return name
-
-    def _apply_meta_looker_attributes(
-        self, target_dict: dict, column: DbtModelColumn, attributes: list
-    ) -> None:
-        """Apply meta attributes from column to target dictionary if they exist."""
-        if (
-            column.meta
-            and column.meta.looker
-            and column.meta.looker.dimension is not None
-        ):
-            for attr in attributes:
-                value = getattr(column.meta.looker.dimension, attr, None)
-                if value is not None:
-                    if attr == "value_format_name":
-                        meta_value = value.value
-                    elif isinstance(value, bool):
-                        meta_value = "yes" if value else "no"
-                    else:
-                        meta_value = value
-                    target_dict[attr] = meta_value
-
-        if self._cli_args.all_hidden:
-            target_dict["hidden"] = "yes"
 
     def _create_iso_field(
         self, field_type: str, column: DbtModelColumn, sql: str
@@ -73,9 +55,11 @@ class LookmlDimensionGenerator:
             "group_label": "D Date",
             "value_format_name": "id",
         }
-        self._apply_meta_looker_attributes(
-            field, column, ["group_label", "label", "hidden"]
+
+        self._applier.apply_meta_attributes(
+            field, column, ["group_label", "label", "hidden"], "meta.looker.dimension"
         )
+
         if field_type == "week_of_year":
             field["label"] = field["label"].replace("Week", "Week Of Year")
         return field
@@ -115,13 +99,12 @@ class LookmlDimensionGenerator:
         elif "STRUCT" in f"{column.data_type}":
             dimension["tags"] = ["struct"]
 
-        # Apply meta looker attributes
-        self._apply_meta_looker_attributes(
+        self._applier.apply_meta_attributes(
             dimension,
             column,
             ["description", "group_label", "value_format_name", "label", "hidden"],
+            "meta.looker.dimension",
         )
-
         return dimension
 
     def lookml_dimension_group(
@@ -157,8 +140,11 @@ class LookmlDimensionGenerator:
             "timeframes": timeframes,
             "convert_tz": convert_tz,
         }
-        self._apply_meta_looker_attributes(
-            dimension_group, column, ["group_label", "label", "hidden"]
+        self._applier.apply_meta_attributes(
+            dimension_group,
+            column,
+            ["group_label", "label", "hidden"],
+            "meta.looker.dimension",
         )
 
         dimension_group_set = {
@@ -179,21 +165,21 @@ class LookmlDimensionGenerator:
 
         return dimension_group, dimension_group_set, dimensions
 
-    def _create_single_array_dimension(self, column: DbtModelColumn) -> dict:
-        """Create a dimension for a simple array type."""
-        data_type = map_bigquery_to_looker(column.inner_types[0])
-        return {
-            "name": column.lookml_name,
-            "type": data_type,
-            "sql": column.lookml_name,
-            "description": column.description or "",
-        }
+    # def _create_single_array_dimension(self, column: DbtModelColumn) -> dict:
+    #     """Create a dimension for a simple array type."""
+    #     data_type = map_bigquery_to_looker(column.inner_types[0])
+    #     return {
+    #         "name": column.lookml_name,
+    #         "type": data_type,
+    #         "sql": column.lookml_name,
+    #         "description": column.description or "",
+    #     }
 
-    def _is_single_type_array(self, column: DbtModelColumn) -> bool:
-        """Check if column is a simple array type."""
-        return column.data_type == "ARRAY" and (
-            len(column.inner_types) == 1 and " " not in column.inner_types[0]
-        )
+    # def _is_single_type_array(self, column: DbtModelColumn) -> bool:
+    #     """Check if column is a simple array type."""
+    #     return column.data_type == "ARRAY" and (
+    #         len(column.inner_types) == 1 and " " not in column.inner_types[0]
+    #     )
 
     def _add_dimension_to_dimension_group(
         self, model: DbtModel, dimensions: list = None, main_view: bool = True
@@ -214,6 +200,7 @@ class LookmlDimensionGenerator:
         dimensions = []
 
         if self._cli_args.implicit_primary_key:
+            # add primary keys on the first column, override if there is a primary key in constraints
             primary_key = True
             for column in column_list:
                 column.is_primary_key = primary_key
@@ -244,7 +231,6 @@ class LookmlDimensionGenerator:
         """Generate dimension groups from model."""
         dimension_groups = []
         dimension_group_sets = []
-        # table_format_sql = not include_names
 
         # First add ISO date dimensions for main view only
         # if not include_names:  # Only for main view

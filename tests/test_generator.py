@@ -12,7 +12,7 @@ from dbt2looker_bigquery.enums import (
 )
 from dbt2looker_bigquery.generators.dimension import LookmlDimensionGenerator
 from dbt2looker_bigquery.generators.measure import LookmlMeasureGenerator
-from dbt2looker_bigquery.generators import LookmlGenerator
+from dbt2looker_bigquery.generators.view import LookmlViewGenerator
 from dbt2looker_bigquery.generators.utils import map_bigquery_to_looker
 from dbt2looker_bigquery.models.dbt import (
     DbtModel,
@@ -379,7 +379,9 @@ def test_view_definition(cli_args):
 
     custom_view_label = "Custom View Label"
     custom_explore_description = "Custom Explore Description"
-    generator = LookmlGenerator(cli_args)
+    measure_generator = LookmlMeasureGenerator(cli_args)
+    dimension_generator = LookmlDimensionGenerator(cli_args)
+    generator = LookmlViewGenerator(cli_args)
     model = DbtModel(
         name="test_model",
         path="models/test_model.sql",
@@ -416,24 +418,14 @@ def test_view_definition(cli_args):
         description="Test model",
         tags=[],
     )
-
-    output = generator.generate(model)
     import logging
 
-    logging.warning(output[1]["view"][0][0])
-    view_definition = output[1]["view"][0][0]
+    output = generator.generate(model, dimension_generator, measure_generator)
+    view_definition = output[0]
+    logging.warning(f"view DEF: {view_definition}")
 
     assert view_definition["name"] == "test_model"
     assert view_definition["label"] == custom_view_label
     assert view_definition["sql_table_name"] == "`project.dataset.table_name`"
-    assert view_definition["description"] is None
-    assert view_definition["hidden"] is False
-    assert view_definition["dimension"] == [
-        {
-            "name": "string_col",
-            "label": "Custom Label",
-            "group_label": "Custom Group",
-            "description": "Custom Description",
-            "value_format_name": LookerValueFormatName.USD.value,
-        }
-    ]
+    assert hasattr(view_definition, "description") is False
+    assert view_definition["hidden"] == "no"

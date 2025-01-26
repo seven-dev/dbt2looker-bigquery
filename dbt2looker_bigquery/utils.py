@@ -128,7 +128,7 @@ class StructureGenerator:
     def __init__(self, args):
         self._cli_args = args
 
-    def process_model(self, model):
+    def process_model(self, model: DbtModel):
         """Process the model to group columns for views and joins"""
         grouped_data = {}
 
@@ -150,11 +150,7 @@ class StructureGenerator:
                     grouped_data[key] = []
                 column_copy = column.model_copy()
                 column_copy.is_inner_array_representation = True
+                column_copy.data_type = column.inner_types[0]
                 grouped_data[key].append(column_copy)
 
-        return grouped_data
-
-    def generate(self, model: DbtModel):
-        """Process a model to group columns for views and joins"""
-        grouped_data = self.process_model(model)
         return grouped_data

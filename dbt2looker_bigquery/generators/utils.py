@@ -29,3 +29,46 @@ def get_column_name(column: DbtModelColumn, is_main_view: bool) -> str:
         return f"${{{parent_path}}}.{column.lookml_name}"
 
     return f"${{TABLE}}.{column.name}"
+
+
+class MetaAttributeApplier:
+    def __init__(self, cli_args):
+        self.cli_args = cli_args
+
+    def apply_meta_attributes(
+        self, target_dict: dict, obj: any, attributes: list, path: str = ""
+    ) -> None:
+        """Apply meta attributes from the given object to the target dictionary if they exist."""
+        meta_obj = self._get_meta_object(obj, path)
+        if meta_obj is not None:
+            for attr in attributes:
+                if hasattr(meta_obj, attr):
+                    value = getattr(meta_obj, attr)
+                    if value is not None:
+                        meta_value = self._get_meta_value(value, attr)
+                        target_dict[attr] = meta_value
+
+        # The condition to add "hidden" should remain outside the 'if' check for None
+        if self.cli_args.all_hidden:
+            target_dict["hidden"] = "yes"
+
+    def _get_meta_object(self, obj, path):
+        """Get the meta object by following the path"""
+        if path == "":
+            return obj
+        parts = path.split(".")
+        for part in parts:
+            obj = getattr(obj, part, None)
+            if obj is None:
+                break
+        return obj
+
+    def _get_meta_value(self, value, attr):
+        """Get the meta value based on the attribute type"""
+        if attr == "value_format_name" and hasattr(value, "value"):
+            meta_value = value.value
+        elif isinstance(value, bool):
+            meta_value = "yes" if value else "no"
+        else:
+            meta_value = value
+        return meta_value

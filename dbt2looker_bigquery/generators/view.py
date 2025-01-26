@@ -4,6 +4,7 @@ from typing import Dict
 
 from dbt2looker_bigquery.models.dbt import DbtModel
 from dbt2looker_bigquery.utils import DotManipulation, StructureGenerator
+from dbt2looker_bigquery.generators.utils import MetaAttributeApplier
 
 
 class LookmlViewGenerator:
@@ -13,24 +14,18 @@ class LookmlViewGenerator:
         self._cli_args = args
         self._dot = DotManipulation()
         self._structure_generator = StructureGenerator(args)
+        self._applier = MetaAttributeApplier(args)
 
-    def _create_view(
+    def _build_view(
         self,
+        view,
         model: DbtModel,
         depth: int,
         column_list: list,
-        view_name: str,
-        view_label: str,
         dimension_generator,
         measure_generator,
     ) -> dict:
         """Create a view definition."""
-        # Build view dict in specific order to match expected LookML output
-        view = {
-            "name": view_name,
-            "label": view_label,
-        }
-
         if depth == 0:
             view["sql_table_name"] = model.relation_name
             is_main_view = True
@@ -64,8 +59,6 @@ class LookmlViewGenerator:
     def generate(
         self,
         model: DbtModel,
-        base_view_name: str,
-        base_view_label: str,
         dimension_generator,
         measure_generator,
     ) -> Dict:
@@ -73,27 +66,33 @@ class LookmlViewGenerator:
         views = []
         grouped_columns = self._structure_generator.process_model(model)
 
+        base_view = {"name": model.name}
+        self._applier.apply_meta_attributes(
+            base_view, model, ["label", "hidden"], "meta.looker.view"
+        )
+
         for key, column_list in grouped_columns.items():
             prepath = key[1]
             depth = key[0]
+            iteration_view = base_view.copy()
+            if depth > 0:
+                iteration_view["name"] = self._dot.remove_dots(
+                    f"{iteration_view['name']}.{prepath}"
+                )
+                if hasattr(iteration_view, "label"):
+                    iteration_view["label"] = self._dot.textualize_dots(
+                        f"{iteration_view['label']} : {prepath}"
+                    )
+                else:
+                    iteration_view["label"] = self._dot.textualize_dots(
+                        f"{iteration_view["name"]} : {prepath}"
+                    )
 
-            view_name = (
-                self._dot.remove_dots(f"{base_view_name}.{prepath}")
-                if prepath
-                else base_view_name
-            )
-            view_label = (
-                self._dot.textualize_dots(f"{base_view_label} : {prepath}")
-                if prepath
-                else base_view_label
-            )
-
-            view = self._create_view(
+            view = self._build_view(
+                iteration_view,
                 model,
                 depth,
                 column_list,
-                view_name,
-                view_label,
                 dimension_generator,
                 measure_generator,
             )

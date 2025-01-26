@@ -2,6 +2,7 @@ from dbt2looker_bigquery.enums import LookerMeasureType, LookerScalarTypes
 from dbt2looker_bigquery.generators.utils import get_column_name, map_bigquery_to_looker
 from dbt2looker_bigquery.models.dbt import DbtModelColumn
 from dbt2looker_bigquery.models.looker import DbtMetaLookerMeasure
+from dbt2looker_bigquery.generators.utils import MetaAttributeApplier
 
 
 class LookmlMeasureGenerator:
@@ -9,6 +10,7 @@ class LookmlMeasureGenerator:
 
     def __init__(self, args):
         self._cli_args = args
+        self._applier = MetaAttributeApplier(args)
 
     def _apply_measure_attributes(
         self, measure_dict: dict, measure: DbtMetaLookerMeasure
@@ -59,9 +61,26 @@ class LookmlMeasureGenerator:
             "description": measure.description
             or f"{measure.type.value} of {column.name}",
         }
-
         # Apply all measure attributes
-        self._apply_measure_attributes(m, measure)
+        self._applier.apply_meta_attributes(
+            m,
+            measure,
+            [
+                "approximate",
+                "approximate_threshold",
+                "can_filter",
+                "tags",
+                "alias",
+                "convert_tz",
+                "suggestable",
+                "precision",
+                "percentile",
+                "group_label",
+                "value_format_name",
+                "label",
+                "description",
+            ],
+        )
 
         # Handle SQL distinct key
         if measure.sql_distinct_key is not None:

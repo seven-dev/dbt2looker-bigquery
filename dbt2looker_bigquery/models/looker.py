@@ -11,12 +11,25 @@ from dbt2looker_bigquery.enums import (
 )
 
 
-class LookViewFile(BaseModel):
-    """A file in a looker view directory"""
+class LookerView(BaseModel):
+    """Looker metadata for a view"""
 
-    filename: str
-    contents: str
-    db_schema: str = Field(..., alias="schema")
+    name: str
+    sql_table_name: Optional[str] = Field(default=None)
+    label: Optional[str] = Field(default=None)
+    hidden: Optional[bool] = Field(default=None)
+    dimensions: Optional[List[dict]] = Field(default=[])
+    measures: Optional[List[dict]] = Field(default=[])
+    sets: Optional[List[dict]] = Field(default=[])
+    dimension_groups: Optional[List[dict]] = Field(default=[])
+
+    def __setitem__(self, key, value):
+        if hasattr(self, key):
+            setattr(self, key, value)
+        else:
+            raise KeyError(
+                f"{key} is not a valid attribute for {self.__class__.__name__}"
+            )
 
 
 class DbtMetaLookerBase(BaseModel):

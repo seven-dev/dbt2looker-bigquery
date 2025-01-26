@@ -8,6 +8,7 @@ from dbt2looker_bigquery.generators.explore import LookmlExploreGenerator
 from dbt2looker_bigquery.generators.measure import LookmlMeasureGenerator
 from dbt2looker_bigquery.generators.view import LookmlViewGenerator
 from dbt2looker_bigquery.models.dbt import DbtModel
+from dbt2looker_bigquery.generators.utils import MetaAttributeApplier
 
 
 class LookmlGenerator:
@@ -19,6 +20,7 @@ class LookmlGenerator:
         self.view_generator = LookmlViewGenerator(cli_args)
         self.explore_generator = LookmlExploreGenerator(cli_args)
         self.measure_generator = LookmlMeasureGenerator(cli_args)
+        self.applier = MetaAttributeApplier(cli_args)
 
     def _get_view_label(self, model: DbtModel) -> str:
         """Get the view label from the model metadata or name."""
@@ -51,27 +53,15 @@ class LookmlGenerator:
         return f"{file_path}/{file_name}.view.lkml"
 
     def generate(self, model: DbtModel) -> Dict:
-        """Generate LookML for a model."""
-
-        # Get view name
-        base_view_name = (
-            model.relation_name.split(".")[-1].strip("`")
-            if self._cli_args.use_table_name
-            else model.name
-        )
-        # Get view label
-        base_view_label = self._get_view_label(model)
+        """Generate LookML for a model. Can generate multiple views and up to 1 explore."""
 
         # Create views
         views = self.view_generator.generate(
             model=model,
-            base_view_name=base_view_name,
-            base_view_label=base_view_label,
             dimension_generator=self.dimension_generator,
             measure_generator=self.measure_generator,
         )
 
-        # Create LookML base
         lookml = {
             "view": [views],
         }
@@ -79,15 +69,11 @@ class LookmlGenerator:
         if (
             self._cli_args.build_explore
         ):  # When build_explore is True, we should generate the explore
-            explore = self.explore_generator.generate(
-                model=model,
-                base_view_name=base_view_name,
-                base_view_label=base_view_label,
-            )
+            explore = self.explore_generator.generate(model=model)
             if explore:
                 lookml["explore"] = explore
 
-        return self._get_file_path(model, base_view_name), lookml
+        return self._get_file_path(model, model.name), lookml
 
 
 __all__ = ["LookmlGenerator"]
