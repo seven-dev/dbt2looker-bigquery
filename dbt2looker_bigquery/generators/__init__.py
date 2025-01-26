@@ -24,11 +24,14 @@ class LookmlGenerator:
 
     def _get_view_label(self, model: DbtModel) -> str:
         """Get the view label from the model metadata or name."""
-        # Check looker meta label first
-        if hasattr(model.meta.looker, "label") and model.meta.looker.label is not None:
-            return model.meta.looker.label
 
-        # Fall back to model name if available
+        # Check looker meta label first
+        if (
+            hasattr(model.meta.looker.view, "label")
+            and model.meta.looker.view.label is not None
+        ):
+            return model.meta.looker.view.label
+
         return model.name.replace("_", " ").title() if hasattr(model, "name") else None
 
     def _get_file_path(self, model: DbtModel, base_view_name: str) -> str:
@@ -78,11 +81,9 @@ class LookmlGenerator:
             "view": [views],
         }
 
-        # Create explore if needed
         if (
             self._cli_args.build_explore
         ):  # When build_explore is True, we should generate the explore
-            # Create explore
             explore = self.explore_generator.generate(
                 model=model,
                 base_view_name=base_view_name,

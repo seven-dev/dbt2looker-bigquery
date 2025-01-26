@@ -93,6 +93,7 @@ class DotManipulation:
 
     def last_dot_only(self, input_string):
         """replace all but the last period with a replacement string
+        IF there are multiple periods in the string
         this is used to create unique names for joins
         """
         sign = "."

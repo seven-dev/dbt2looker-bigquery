@@ -9,7 +9,10 @@ from dbt2looker_bigquery.models.dbt import (
     DbtModelColumnMeta,
     DbtModelMeta,
 )
-from dbt2looker_bigquery.models.looker import DbtMetaLooker, DbtMetaLookerDimension
+from dbt2looker_bigquery.models.looker import (
+    DbtMetaColumnLooker,
+    DbtMetaLookerDimension,
+)
 from dbt2looker_bigquery.parsers.catalog import CatalogParser
 
 
@@ -88,7 +91,7 @@ class TestCatalogParser:
                     description="Primary key",
                     data_type=None,
                     meta=DbtModelColumnMeta(
-                        looker=DbtMetaLooker(
+                        looker=DbtMetaColumnLooker(
                             dimension=DbtMetaLookerDimension(
                                 hidden=False,
                             )

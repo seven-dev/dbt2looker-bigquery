@@ -41,11 +41,12 @@ class LookmlDimensionGenerator:
     ) -> None:
         """Apply meta attributes from column to target dictionary if they exist."""
         if (
-            column.meta and column.meta.looker
-            # and column.meta.looker.dimension is not None
+            column.meta
+            and column.meta.looker
+            and column.meta.looker.dimension is not None
         ):
             for attr in attributes:
-                value = getattr(column.meta.looker, attr, None)
+                value = getattr(column.meta.looker.dimension, attr, None)
                 if value is not None:
                     if attr == "value_format_name":
                         meta_value = value.value

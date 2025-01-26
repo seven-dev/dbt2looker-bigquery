@@ -74,9 +74,10 @@ class LookmlExploreGenerator:
         if (
             hasattr(model, "meta")
             and hasattr(model.meta, "looker")
-            and hasattr(model.meta.looker, "hidden")
+            and hasattr(model.meta.looker, "view")
+            and hasattr(model.meta.looker.view, "hidden")
         ):
-            hidden = "no" if not model.meta.looker.hidden else "yes"
+            hidden = "no" if not model.meta.looker.view.hidden else "yes"
 
         # Create explore
         explore = {

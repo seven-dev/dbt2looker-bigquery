@@ -1,6 +1,6 @@
 from typing import List, Optional, Union
 import logging
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 from dbt2looker_bigquery.enums import (
     # LookerJoinType,
@@ -22,61 +22,7 @@ class LookViewFile(BaseModel):
 class DbtMetaLookerBase(BaseModel):
     label: Optional[str] = None
     hidden: Optional[bool] = None
-
-
-class DbtMetaLookerBaseDescribable(DbtMetaLookerBase):
     description: Optional[str] = None
-    group_label: Optional[str] = None
-
-
-class DbtMetaLookerDimension(DbtMetaLookerBaseDescribable):
-    """Looker-specific metadata for a dimension on a dbt model column
-
-    meta:
-        looker:
-            dimension:
-                hidden: True
-                label: "Blog Info"
-                group_label: "Blog Info"
-                description: "Blog Info"
-                value_format_name: decimal_0
-                filters:
-                    - path: "/blog%"
-
-    """
-
-    convert_tz: Optional[bool] = Field(default=None)
-    group_label: Optional[str] = Field(default=None)
-    value_format_name: Optional[LookerValueFormatName] = Field(default=None)
-    timeframes: Optional[List[LookerTimeFrame]] = Field(default=None)
-    can_filter: Optional[Union[bool, str]] = Field(default=None)
-
-    @model_validator(mode="before")
-    def check_enums(cls, values):
-        # Check if the value for `value_format_name` is valid
-        value_format_name = values.get("value_format_name")
-        if value_format_name and not isinstance(
-            value_format_name, LookerValueFormatName
-        ):
-            logging.warning(
-                f"Invalid value for value_format_name: {value_format_name}. It will be excluded."
-            )
-            values.pop("value_format_name", None)
-
-        # Check if values for `timeframes` are valid
-        timeframes = values.get("timeframes", [])
-        if timeframes:
-            valid_timeframes = [
-                tf for tf in timeframes if isinstance(tf, LookerTimeFrame)
-            ]
-            if len(valid_timeframes) < len(timeframes):
-                invalid_timeframes = set(timeframes) - set(valid_timeframes)
-                logging.warning(
-                    f"Invalid values for timeframes: {invalid_timeframes}. They will be excluded."
-                )
-                values["timeframes"] = valid_timeframes
-
-        return values
 
 
 class DbtMetaLookerMeasureFilter(BaseModel):
@@ -84,7 +30,29 @@ class DbtMetaLookerMeasureFilter(BaseModel):
     filter_expression: str
 
 
-class DbtMetaLookerMeasure(DbtMetaLookerBaseDescribable):
+class DbtMetaLookerViewElement(DbtMetaLookerBase):
+    """Looker metadata for a view element."""
+
+    value_format_name: Optional[LookerValueFormatName] = Field(default=None)
+    filters: Optional[List[DbtMetaLookerMeasureFilter]] = None
+    group_label: Optional[str] = None
+
+    @field_validator("value_format_name", mode="before")
+    def validate_format_name(cls, value):
+        if value is not None:
+            if isinstance(value, str):
+                value = value.strip()
+                if not LookerValueFormatName.has_value(value):
+                    logging.warning(
+                        f"Invalid value for value_format_name [{value}]. Setting to None."
+                    )
+                    return None
+                else:
+                    return LookerValueFormatName(value)
+        return value
+
+
+class DbtMetaLookerMeasure(DbtMetaLookerViewElement):
     """Looker metadata for a measure."""
 
     # Required fields
@@ -92,9 +60,6 @@ class DbtMetaLookerMeasure(DbtMetaLookerBaseDescribable):
 
     # Common optional fields
     name: Optional[str] = None
-    group_label: Optional[str] = None
-    value_format_name: Optional[LookerValueFormatName] = None
-    filters: Optional[List[DbtMetaLookerMeasureFilter]] = None
 
     # Fields specific to certain measure types
     approximate: Optional[bool] = None  # For count_distinct
@@ -102,20 +67,6 @@ class DbtMetaLookerMeasure(DbtMetaLookerBaseDescribable):
     precision: Optional[int] = None  # For average, sum
     sql_distinct_key: Optional[str] = None  # For count_distinct
     percentile: Optional[int] = None  # For percentile measures
-
-    @model_validator(mode="before")
-    def check_enums(cls, values):
-        # Validate value_format_name
-        value_format_name = values.get("value_format_name")
-        if value_format_name and not isinstance(
-            value_format_name, LookerValueFormatName
-        ):
-            logging.warning(
-                f"Invalid value for value_format_name: {value_format_name}. It will be excluded."
-            )
-            values.pop("value_format_name", None)
-
-        return values
 
     @model_validator(mode="before")
     def validate_measure_attributes(cls, values):
@@ -152,6 +103,44 @@ class DbtMetaLookerMeasure(DbtMetaLookerBaseDescribable):
         return values
 
 
+class DbtMetaLookerDimension(DbtMetaLookerViewElement):
+    """Looker-specific metadata for a dimension on a dbt model column
+
+    meta:
+        looker:
+            dimension:
+                hidden: True
+                label: "Blog Info"
+                group_label: "Blog Info"
+                description: "Blog Info"
+                value_format_name: decimal_0
+                filters:
+                    - path: "/blog%"
+
+    """
+
+    convert_tz: Optional[bool] = Field(default=None)
+    timeframes: Optional[List[LookerTimeFrame]] = Field(default=None)
+    can_filter: Optional[Union[bool, str]] = Field(default=None)
+
+    @field_validator("timeframes", mode="before")
+    def check_enums(cls, values):
+        if values is not None:
+            if isinstance(values, list[str]):
+                timeframes = values
+                valid_timeframes = [
+                    tf for tf in timeframes if isinstance(tf, LookerTimeFrame)
+                ]
+                if len(valid_timeframes) < len(timeframes):
+                    invalid_timeframes = set(timeframes) - set(valid_timeframes)
+                    logging.warning(
+                        f"Invalid values for timeframes: {invalid_timeframes}. They will be excluded."
+                    )
+                    values["timeframes"] = valid_timeframes
+
+        return values
+
+
 class DbtMetaLookerDerivedMeasure(DbtMetaLookerMeasure):
     """Looker metadata for a derived measure."""
 
@@ -162,6 +151,56 @@ class DbtMetaLookerDerivedDimension(DbtMetaLookerDimension):
     """Looker metadata for a derived dimension."""
 
     sql: str
+
+
+class DbtMetaColumnLooker(DbtMetaLookerViewElement):
+    """Looker metadata for a column in a dbt model"""
+
+    dimension: Optional[DbtMetaLookerDimension] = None
+    measures: Optional[List[DbtMetaLookerMeasure]] = Field(default=[])
+
+    @model_validator(mode="before")
+    def warn_outdated(cls, values):
+        if values.get("looker_measures"):
+            logging.warning(
+                "The 'looker: looker_measures' field is outdated and should be moved to 'looker: measures:'"
+            )
+            values["measures"] = values.get("looker_measures")
+
+        label = None
+        hidden = None
+        description = None
+        value_format_name = None
+        group_label = None
+        if values.get("label"):
+            label = values.get("label")
+        if values.get("hidden"):
+            hidden = values.get("hidden")
+        if values.get("description"):
+            description = values.get("description")
+        if values.get("value_format_name"):
+            value_format_name = values.get("value_format_name")
+        if values.get("group_label"):
+            group_label = values.get("group_label")
+
+        if label or hidden or description or value_format_name:
+            if "dimension" not in values or values["dimension"] is None:
+                values["dimension"] = {}
+                values["dimension"]["label"] = label if label else None
+                values["dimension"]["group_label"] = (
+                    group_label if group_label else None
+                )
+                values["dimension"]["hidden"] = hidden if hidden else None
+                values["dimension"]["description"] = (
+                    description if description else None
+                )
+                values["dimension"]["value_format_name"] = (
+                    value_format_name if value_format_name else None
+                )
+                logging.warning(
+                    "Deprecation_warning: Looker dimension metadata should be moved to 'looker: dimension:'"
+                )
+        return values
 
 
 # class DbtMetaLookerJoin(BaseModel):
@@ -187,11 +226,10 @@ class DbtMetaLookerDerivedDimension(DbtMetaLookerDimension):
 class DbtMetaLooker(DbtMetaLookerBase):
     """Looker metadata for a model."""
 
+    view: Optional[DbtMetaLookerBase] = None
+    explore: Optional[DbtMetaLookerBase] = None
     measures: Optional[List[DbtMetaLookerDerivedMeasure]] = Field(default=[])
     dimensions: Optional[List[DbtMetaLookerDerivedDimension]] = Field(default=[])
 
     # Component fields
-    # view: Optional[DbtMetaLookerBase] = None
-    # dimension: Optional[DbtMetaLookerDimension] = None
-    # measures: Optional[List[DbtMetaLookerMeasure]] = Field(default=[])
     # joins: Optional[List[DbtMetaLookerJoin]] = Field(default=[])

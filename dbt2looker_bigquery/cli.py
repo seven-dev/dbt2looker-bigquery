@@ -141,7 +141,6 @@ class Cli:
 
         # Write contents
         self._file_handler.write(file_path, contents)
-        logging.debug(f"Generated {file_path}")
 
         return file_path
 

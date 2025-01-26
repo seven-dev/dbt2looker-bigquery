@@ -31,6 +31,6 @@ class StructureGenerator:
         return grouped_data
 
     def generate(self, model):
-        """Display the grouped data"""
+        """Process a model to group columns for views and joins"""
         grouped_data = self.process_model(model)
         return grouped_data

@@ -12,6 +12,7 @@ from dbt2looker_bigquery.enums import (
 )
 from dbt2looker_bigquery.generators.dimension import LookmlDimensionGenerator
 from dbt2looker_bigquery.generators.measure import LookmlMeasureGenerator
+from dbt2looker_bigquery.generators import LookmlGenerator
 from dbt2looker_bigquery.generators.utils import map_bigquery_to_looker
 from dbt2looker_bigquery.models.dbt import (
     DbtModel,
@@ -20,10 +21,12 @@ from dbt2looker_bigquery.models.dbt import (
     DbtModelMeta,
 )
 from dbt2looker_bigquery.models.looker import (
-    DbtMetaLooker,
     DbtMetaLookerDimension,
     DbtMetaLookerMeasure,
     DbtMetaLookerMeasureFilter,
+    DbtMetaColumnLooker,
+    DbtMetaLooker,
+    DbtMetaLookerBase,
 )
 from dbt2looker_bigquery.utils import Sql
 
@@ -36,6 +39,8 @@ def cli_args():
         build_explore=False,
         all_hidden=False,
         implicit_primary_key=False,
+        folder_structure="BIGQUERY_DATASET",
+        remove_prefix_from_dataset="",
     )
 
 
@@ -107,7 +112,7 @@ def test_dimension_group_date(cli_args):
         data_type="DATE",
         unique_id="test_model.created_date",
         meta=DbtModelColumnMeta(
-            looker=DbtMetaLooker(
+            looker=DbtMetaColumnLooker(
                 dimension=DbtMetaLookerDimension(
                     label="Custom Date Label", group_label="Custom Group"
                 )
@@ -149,7 +154,7 @@ def test_lookml_dimensions_with_metadata(cli_args):
                 unique_id="test_model.string_col",
                 description="Custom Description",
                 meta=DbtModelColumnMeta(
-                    looker=DbtMetaLooker(
+                    looker=DbtMetaColumnLooker(
                         dimension=DbtMetaLookerDimension(
                             label="Custom Label",
                             group_label="Custom Group",
@@ -195,7 +200,7 @@ def test_lookml_measures_from_model(cli_args):
                 data_type="FLOAT64",
                 unique_id="test_model.amount",
                 meta=DbtModelColumnMeta(
-                    looker=DbtMetaLooker(
+                    looker=DbtMetaColumnLooker(
                         measures=[
                             DbtMetaLookerMeasure(
                                 type=LookerMeasureType.SUM,
@@ -243,7 +248,7 @@ def test_lookml_measures_with_filters(cli_args):
                 data_type="FLOAT64",
                 unique_id="test_model.amount",
                 meta=DbtModelColumnMeta(
-                    looker=DbtMetaLooker(
+                    looker=DbtMetaColumnLooker(
                         measures=[
                             DbtMetaLookerMeasure(
                                 type=LookerMeasureType.SUM,
@@ -274,3 +279,161 @@ def test_lookml_measures_with_filters(cli_args):
     measure = measures[0]
     assert measure["type"] == LookerMeasureType.SUM.value
     assert measure["filters"] == [{"field": "status", "value": "completed"}]
+
+
+def test_legacy_lookml_dimension(cli_args):
+    """Test dimension generation with various metadata options"""
+    dimension_generator = LookmlDimensionGenerator(cli_args)
+    model = DbtModel(
+        name="test_model",
+        path="models/test_model.sql",
+        relation_name="`project.dataset.table_name`",
+        columns={
+            "string_col": DbtModelColumn(
+                name="string_col",
+                lookml_name="string_col",
+                lookml_long_name="string_col",
+                data_type="STRING",
+                unique_id="test_model.string_col",
+                description="Custom Description",
+                meta=DbtModelColumnMeta(
+                    looker=DbtMetaColumnLooker(
+                        label="Custom Label",
+                        group_label="Custom Group",
+                        description="Custom Description",
+                        value_format_name=LookerValueFormatName.USD,
+                    ),
+                ),
+            )
+        },
+        meta=DbtModelMeta(),
+        unique_id="test_model",
+        resource_type="model",
+        schema="test_schema",
+        description="Test model",
+        tags=[],
+    )
+
+    dimensions = dimension_generator.lookml_dimensions_from_model(
+        model.columns.values(), True
+    )
+    assert len(dimensions) == 1
+    dimension = dimensions[0]
+    assert dimension["name"] == "string_col"
+    assert dimension["label"] == "Custom Label"
+    assert dimension["group_label"] == "Custom Group"
+    assert dimension["description"] == "Custom Description"
+    assert dimension["value_format_name"] == LookerValueFormatName.USD.value
+
+
+def test_legacy_lookml_measure(cli_args):
+    """Test measure generation from model"""
+    measure_generator = LookmlMeasureGenerator(cli_args)
+    model = DbtModel(
+        name="test_model",
+        path="models/test_model.sql",
+        relation_name="`project.dataset.table_name`",
+        columns={
+            "amount": DbtModelColumn(
+                name="amount",
+                lookml_name="amount",
+                lookml_long_name="amount",
+                data_type="FLOAT64",
+                unique_id="test_model.amount",
+                meta=DbtModelColumnMeta(
+                    looker=DbtMetaColumnLooker(
+                        looker_measures=[
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.SUM,
+                                label="Total Amount",
+                                description="Sum of all amounts",
+                                value_format_name=LookerValueFormatName.USD,
+                            )
+                        ]
+                    ),
+                ),
+            ),
+        },
+        meta=DbtModelMeta(),
+        unique_id="test_model",
+        resource_type="model",
+        schema="test_schema",
+        description="Test model",
+        tags=[],
+    )
+
+    measures = measure_generator.lookml_measures_from_model(
+        model.columns.values(), True
+    )
+    assert len(measures) == 1
+    measure = measures[0]
+    assert measure["type"] == LookerMeasureType.SUM.value
+    assert measure["label"] == "Total Amount"
+    assert measure["description"] == "Sum of all amounts"
+    assert measure["value_format_name"] == LookerValueFormatName.USD.value
+    assert measure["sql"] == "${TABLE}.amount"
+
+
+def test_view_definition(cli_args):
+    """Test view definition generation"""
+
+    custom_view_label = "Custom View Label"
+    custom_explore_description = "Custom Explore Description"
+    generator = LookmlGenerator(cli_args)
+    model = DbtModel(
+        name="test_model",
+        path="models/test_model.sql",
+        relation_name="`project.dataset.table_name`",
+        columns={
+            "string_col": DbtModelColumn(
+                name="string_col",
+                lookml_name="string_col",
+                lookml_long_name="string_col",
+                data_type="STRING",
+                unique_id="test_model.string_col",
+                description="Custom Description",
+            ),
+            "amount": DbtModelColumn(
+                name="amount",
+                lookml_name="amount",
+                lookml_long_name="amount",
+                data_type="FLOAT64",
+                unique_id="test_model.amount",
+            ),
+        },
+        meta=DbtModelMeta(
+            looker=DbtMetaLooker(
+                view=DbtMetaLookerBase(
+                    hidden=False,
+                    label=custom_view_label,
+                    description=custom_explore_description,
+                )
+            ),
+        ),
+        unique_id="test_model",
+        resource_type="model",
+        schema="test_schema",
+        description="Test model",
+        tags=[],
+    )
+
+    output = generator.generate(model)
+    import logging
+
+    logging.warning(output[1]["view"][0][0])
+    view_definition = output[1]["view"][0][0]
+
+    assert view_definition["name"] == "test_model"
+    assert view_definition["label"] == custom_view_label
+    assert view_definition["sql_table_name"] == "`project.dataset.table_name`"
+    assert view_definition["description"] is None
+    assert view_definition["hidden"] is False
+    assert view_definition["dimension"] == [
+        {
+            "name": "string_col",
+            "label": "Custom Label",
+            "group_label": "Custom Group",
+            "description": "Custom Description",
+            "value_format_name": LookerValueFormatName.USD.value,
+        }
+    ]

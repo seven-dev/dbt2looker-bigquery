@@ -52,6 +52,10 @@ class LookerValueFormatName(str, ExtendedEnum):
     PERCENT_3 = "percent_3"
     PERCENT_4 = "percent_4"
 
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
+
 
 class LookerTimeFrame(str, ExtendedEnum):
     DATE = "date"

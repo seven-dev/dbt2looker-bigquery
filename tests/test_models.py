@@ -10,6 +10,7 @@ from dbt2looker_bigquery.models.dbt import (
 )
 from dbt2looker_bigquery.models.looker import (
     DbtMetaLooker,
+    DbtMetaColumnLooker,
     DbtMetaLookerBase,
     DbtMetaLookerDimension,
 )
@@ -57,7 +58,7 @@ class TestDbtModels:
         assert isinstance(model.meta.looker.view, DbtMetaLookerBase)
         assert len(model.columns) == 1
         assert isinstance(model.columns["id"], DbtModelColumn)
-        assert isinstance(model.columns["id"].meta.looker, DbtMetaLooker)
+        assert isinstance(model.columns["id"].meta.looker, DbtMetaColumnLooker)
         assert isinstance(
             model.columns["id"].meta.looker.dimension, DbtMetaLookerDimension
         )

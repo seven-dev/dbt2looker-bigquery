@@ -48,5 +48,9 @@ class DbtParser:
         for model in filtered_models:
             if processed_model := self._catalog_parser.process_model(model):
                 processed_models.append(processed_model)
-
+            else:
+                logging.debug(
+                    f"Model {model.unique_id} has no columns in catalog, skipping"
+                )
+        logging.debug(f"Models after catalog {len(processed_models)}")
         return processed_models
