@@ -1,6 +1,8 @@
 from typing import List, Optional, Union
 import logging
 from pydantic import BaseModel, Field, model_validator, field_validator
+import warnings
+from dbt2looker_bigquery.warnings import DeprecationWarning
 
 from dbt2looker_bigquery.enums import (
     # LookerJoinType,
@@ -84,34 +86,36 @@ class DbtMetaLookerMeasure(DbtMetaLookerViewElement):
     @model_validator(mode="before")
     def validate_measure_attributes(cls, values):
         """Validate that measure attributes are compatible with the measure type."""
-        measure_type = values.get("type")
+        if type(values) is dict:
+            measure_type = values.get("type")
 
-        # Validate type-specific attributes
-        if (
-            any(
-                v is not None
-                for v in [
-                    values.get("approximate"),
-                    values.get("approximate_threshold"),
-                    values.get("sql_distinct_key"),
-                ]
-            )
-            and measure_type != LookerMeasureType.COUNT_DISTINCT
-        ):
-            raise ValueError(
-                "approximate, approximate_threshold, and sql_distinct_key can only be used with count_distinct measures"
-            )
+            if (
+                any(
+                    v is not None
+                    for v in [
+                        values.get("approximate"),
+                        values.get("approximate_threshold"),
+                        values.get("sql_distinct_key"),
+                    ]
+                )
+                and measure_type != LookerMeasureType.COUNT_DISTINCT
+            ):
+                raise ValueError(
+                    "approximate, approximate_threshold, and sql_distinct_key can only be used with count_distinct measures"
+                )
 
-        if values.get("percentile") is not None and not measure_type.value.startswith(
-            "percentile"
-        ):
-            raise ValueError("percentile can only be used with percentile measures")
+            if values.get(
+                "percentile"
+            ) is not None and not measure_type.value.startswith("percentile"):
+                raise ValueError("percentile can only be used with percentile measures")
 
-        if values.get("precision") is not None and measure_type not in [
-            LookerMeasureType.AVERAGE,
-            LookerMeasureType.SUM,
-        ]:
-            raise ValueError("precision can only be used with average or sum measures")
+            if values.get("precision") is not None and measure_type not in [
+                LookerMeasureType.AVERAGE,
+                LookerMeasureType.SUM,
+            ]:
+                raise ValueError(
+                    "precision can only be used with average or sum measures"
+                )
 
         return values
 
@@ -174,12 +178,6 @@ class DbtMetaColumnLooker(DbtMetaLookerViewElement):
 
     @model_validator(mode="before")
     def warn_outdated(cls, values):
-        if values.get("looker_measures"):
-            logging.warning(
-                "The 'looker: looker_measures' field is outdated and should be moved to 'looker: measures:'"
-            )
-            values["measures"] = values.get("looker_measures")
-
         label = None
         hidden = None
         description = None
@@ -210,8 +208,9 @@ class DbtMetaColumnLooker(DbtMetaLookerViewElement):
                 values["dimension"]["value_format_name"] = (
                     value_format_name if value_format_name else None
                 )
-                logging.warning(
-                    "Deprecation_warning: Looker dimension metadata should be moved to 'looker: dimension:'"
+                warnings.warn(
+                    "putting dimension attributes in 'looker' is outdated and should be moved to 'looker: dimension:'",
+                    DeprecationWarning,
                 )
         return values
 

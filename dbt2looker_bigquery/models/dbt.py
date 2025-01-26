@@ -1,5 +1,7 @@
 import logging
 from typing import Dict, List, Optional, Union
+import warnings
+from dbt2looker_bigquery.warnings import DeprecationWarning
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -103,8 +105,6 @@ class DbtCatalogNodeColumn(BaseModel):
     comment: Optional[str] = None
     index: int
     name: str
-    # child_name: Optional[str]
-    # parent: Optional[str]  # Added field to store the parent node
     parent: Optional["DbtCatalogNodeColumn"] = None
 
     @model_validator(mode="before")
@@ -161,7 +161,26 @@ class DbtCatalog(BaseModel):
 class DbtModelColumnMeta(BaseModel):
     """Metadata about a column in a dbt model"""
 
-    looker: Optional[DbtMetaColumnLooker] = DbtMetaColumnLooker()
+    looker: Optional[DbtMetaColumnLooker] = None
+
+    @model_validator(mode="before")
+    def warn_outdated(cls, values):
+        looker_measures = values.pop(
+            "looker_measures", None
+        )  # Use pop to remove from values if it exists
+        if looker_measures is not None:
+            warnings.warn(
+                "'The 'looker: looker_measures' field is outdated and should be moved to 'looker: measures:'",
+                DeprecationWarning,
+            )
+            looker = values.get("looker", {})
+            if looker is None:
+                looker = {}
+            measures = looker.get("measures")
+            if measures is None:
+                looker["measures"] = looker_measures
+                values["looker"] = looker
+        return values
 
 
 class DbtModelColumn(BaseModel):
@@ -201,7 +220,6 @@ class DbtModelColumn(BaseModel):
     def set_primary_key(cls, values):
         constraints = values.get("constraints", [])
 
-        # if there is a primary key in constraints
         if {"type": "primary_key"} in constraints:
             logging.debug("Found primary key on %s model", values["name"])
             values["is_primary_key"] = True
@@ -271,15 +289,6 @@ class DbtModel(DbtNode):
                 )
 
         values["columns"] = new_columns
-
-        # Set the first column flag after ensuring all columns are converted
-        if new_columns:
-            first_key = list(new_columns.keys())[0]
-            first_column = new_columns[first_key]
-            first_column = first_column.model_copy(
-                update={"is_first_column_in_model": True}
-            )
-            new_columns[first_key] = first_column
 
         return values
 

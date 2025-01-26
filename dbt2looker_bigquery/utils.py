@@ -154,3 +154,24 @@ class StructureGenerator:
                 grouped_data[key].append(column_copy)
 
         return grouped_data
+
+
+class DeprecationWarnings:
+    """Warn about deprecated features"""
+
+    def __init__(self):
+        self.warnings = []
+
+    def store_deprecation_warning(self, message: str):
+        """Store a deprecation warning message"""
+        self.warnings.append(message)
+
+    def print_deprecation_warnings(self):
+        print_warnings = list(set(self.warnings))
+        logging.warning("!Deprecation warnings:")
+        for warning in print_warnings:
+            logging.warning(warning)
+
+    def has_warnings(self):
+        if len(self.warnings) > 0:
+            return True

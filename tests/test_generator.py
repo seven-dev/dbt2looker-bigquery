@@ -341,16 +341,14 @@ def test_legacy_lookml_measure(cli_args):
                 data_type="FLOAT64",
                 unique_id="test_model.amount",
                 meta=DbtModelColumnMeta(
-                    looker=DbtMetaColumnLooker(
-                        looker_measures=[
-                            DbtMetaLookerMeasure(
-                                type=LookerMeasureType.SUM,
-                                label="Total Amount",
-                                description="Sum of all amounts",
-                                value_format_name=LookerValueFormatName.USD,
-                            )
-                        ]
-                    ),
+                    looker_measures=[
+                        DbtMetaLookerMeasure(
+                            type=LookerMeasureType.SUM,
+                            label="Total Amount",
+                            description="Sum of all amounts",
+                            value_format_name=LookerValueFormatName.USD,
+                        )
+                    ]
                 ),
             ),
         },
@@ -418,11 +416,9 @@ def test_view_definition(cli_args):
         description="Test model",
         tags=[],
     )
-    import logging
 
     output = generator.generate(model, dimension_generator, measure_generator)
     view_definition = output[0]
-    logging.warning(f"view DEF: {view_definition}")
 
     assert view_definition["name"] == "test_model"
     assert view_definition["label"] == custom_view_label

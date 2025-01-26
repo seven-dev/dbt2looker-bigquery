@@ -1,5 +1,6 @@
 import argparse
 import os
+from dbt2looker_bigquery.warnings import captured_warnings
 
 import lkml
 
@@ -15,7 +16,7 @@ from rich.logging import RichHandler
 from dbt2looker_bigquery.exceptions import CliError
 from dbt2looker_bigquery.generators import LookmlGenerator
 from dbt2looker_bigquery.parsers import DbtParser
-from dbt2looker_bigquery.utils import FileHandler
+from dbt2looker_bigquery.utils import FileHandler, DeprecationWarnings
 
 logging.basicConfig(
     level=logging.INFO, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
@@ -31,6 +32,7 @@ class Cli:
     def __init__(self):
         self._args_parser = self._init_argparser()
         self._file_handler = FileHandler()
+        self._deprecation_warnings = DeprecationWarnings()
 
     def _init_argparser(self):
         """Create and configure the argument parser"""
@@ -187,6 +189,13 @@ class Cli:
 
             models = self.parse(args)
             self.generate(args, models)
+
+            deprecations = list()
+            for msg, cat, fname, lineno in captured_warnings:
+                deprecations.append(f"{cat.__name__} {msg}")
+            if deprecations:
+                for deprecation in set(deprecations):
+                    logging.warning(deprecation)
 
         except CliError:
             # Logs should already be printed by the handler
