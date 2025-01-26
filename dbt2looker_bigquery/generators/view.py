@@ -3,7 +3,7 @@
 from typing import Dict
 
 from dbt2looker_bigquery.models.dbt import DbtModel
-from dbt2looker_bigquery.utils import DotManipulation
+from dbt2looker_bigquery.utils import DotManipulation, StructureGenerator
 
 
 class LookmlViewGenerator:
@@ -12,6 +12,7 @@ class LookmlViewGenerator:
     def __init__(self, args):
         self._cli_args = args
         self._dot = DotManipulation()
+        self._structure_generator = StructureGenerator(args)
 
     def _create_view(
         self,
@@ -67,10 +68,10 @@ class LookmlViewGenerator:
         base_view_label: str,
         dimension_generator,
         measure_generator,
-        grouped_columns: dict,
     ) -> Dict:
         """Generate a view for a model."""
         views = []
+        grouped_columns = self._structure_generator.process_model(model)
 
         for key, column_list in grouped_columns.items():
             prepath = key[1]

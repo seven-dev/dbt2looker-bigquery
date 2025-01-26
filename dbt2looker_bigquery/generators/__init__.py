@@ -8,7 +8,6 @@ from dbt2looker_bigquery.generators.explore import LookmlExploreGenerator
 from dbt2looker_bigquery.generators.measure import LookmlMeasureGenerator
 from dbt2looker_bigquery.generators.view import LookmlViewGenerator
 from dbt2looker_bigquery.models.dbt import DbtModel
-from dbt2looker_bigquery.generators.structure import StructureGenerator
 
 
 class LookmlGenerator:
@@ -20,7 +19,6 @@ class LookmlGenerator:
         self.view_generator = LookmlViewGenerator(cli_args)
         self.explore_generator = LookmlExploreGenerator(cli_args)
         self.measure_generator = LookmlMeasureGenerator(cli_args)
-        self.structure_generator = StructureGenerator(cli_args)
 
     def _get_view_label(self, model: DbtModel) -> str:
         """Get the view label from the model metadata or name."""
@@ -64,8 +62,6 @@ class LookmlGenerator:
         # Get view label
         base_view_label = self._get_view_label(model)
 
-        grouped_columns = self.structure_generator.generate(model)
-
         # Create views
         views = self.view_generator.generate(
             model=model,
@@ -73,7 +69,6 @@ class LookmlGenerator:
             base_view_label=base_view_label,
             dimension_generator=self.dimension_generator,
             measure_generator=self.measure_generator,
-            grouped_columns=grouped_columns,
         )
 
         # Create LookML base
@@ -88,7 +83,6 @@ class LookmlGenerator:
                 model=model,
                 base_view_name=base_view_name,
                 base_view_label=base_view_label,
-                grouped_columns=grouped_columns,
             )
             if explore:
                 lookml["explore"] = explore

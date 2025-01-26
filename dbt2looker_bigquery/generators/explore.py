@@ -1,7 +1,7 @@
 """LookML explore generator module."""
 
 from dbt2looker_bigquery.models.dbt import DbtModel
-from dbt2looker_bigquery.utils import DotManipulation
+from dbt2looker_bigquery.utils import DotManipulation, StructureGenerator
 
 
 class LookmlExploreGenerator:
@@ -10,6 +10,7 @@ class LookmlExploreGenerator:
     def __init__(self, args):
         self._cli_args = args
         self._dot = DotManipulation()
+        self._structure_generator = StructureGenerator(args)
 
     def get_reduced_paths(self, input_string):
         # Split the input string by periods
@@ -66,7 +67,6 @@ class LookmlExploreGenerator:
         model: DbtModel,
         base_view_name: str,
         base_view_label: str,
-        grouped_columns: dict,
     ) -> dict:
         """Create the explore definition."""
         # default behavior is to hide the view
@@ -85,6 +85,8 @@ class LookmlExploreGenerator:
             "label": base_view_label,
             "hidden": hidden,
         }
+
+        grouped_columns = self._structure_generator.process_model(model)
 
         # if joins exist we need to explore them
         if joins := self.generate_joins(model, grouped_columns):
