@@ -43,7 +43,11 @@ class ModelParser:
         filtered = models_list
 
         if select_model:
-            return [model for model in filtered if model.name == select_model]
+            filtered_models = [
+                model for model in filtered if model.name == select_model
+            ]
+            logging.debug(f"Filtered models after select: {len(filtered_models)}")
+            return filtered_models
 
         if tag:
             filtered = [model for model in filtered if self._tags_match(tag, model)]
@@ -58,7 +62,7 @@ class ModelParser:
         return [
             node
             for node in nodes.values()
-            if isinstance(node, DbtModel) and node.resource_type == resource_type
+            if node.resource_type == resource_type and isinstance(node, DbtModel)
         ]
 
     def _tags_match(self, tag: str, model: DbtModel) -> bool:

@@ -214,34 +214,47 @@ class DbtMetaColumnLooker(DbtMetaLookerViewElement):
                 )
         return values
 
+    # @field_validator('measures', mode="before")
+    # def validate_measures(cls, v):
+    #     """ we need to gracefully handle the cases where a measure is malformed
+    #         if not the model is not generated, and the user gets no feedback as to why
+    #     """
+    #     if isinstance(v, list):
+    #         new_submodels = []
+    #         for item in v:
+    #             try:
+    #                 new_submodel = DbtMetaLookerMeasure(**item)
+    #             except ValidationError:
+    #                 new_submodel = None
+    #             except TypeError:
+    #                 new_submodel = None
+    #             new_submodels.append(new_submodel)
+    #         return new_submodels
 
-# class DbtMetaLookerJoin(BaseModel):
-#     """Looker-specific metadata for joins on a dbt model
+    #     # Not a list, try to validate as a single submodel
+    #     try:
+    #         return [DbtMetaLookerMeasure(**v)]
+    #     except ValidationError:
+    #         return [None]
 
-#     meta:
-#       looker:
-#         description: "Page views for Hubble landing page"
-#         label: "Page Views"
-#         joins:
-#           - join: users                               # Reference another dbt model to join to
-#             sql_on: "${users.id} = ${pages.user_id}"  # Sql string containing join clause
-#             type: left_outer                          # Optional - left_outer is default
-#             relationship: many_to_one                 # Relationship type
-#     """
-
-#     join_model: Optional[str] = Field(default=None)
-#     sql_on: Optional[str] = Field(default=None)
-#     type: Optional[LookerJoinType] = Field(default=None)
-#     relationship: Optional[LookerRelationshipType] = Field(default=None)
+    # @field_validator('dimension', mode="before")
+    # def validate_dimensions(cls, v):
+    #     """ we need to gracefully handle the cases where a dimension is malformed
+    #         if not the model is not generated, and the user gets no feedback as to why
+    #     """
+    #     try:
+    #         dimension = DbtMetaLookerDimension(**v)
+    #     except ValidationError:
+    #         dimension = None
+    #     except TypeError:
+    #         dimension = None
+    #     return dimension
 
 
 class DbtMetaLooker(DbtMetaLookerBase):
     """Looker metadata for a model."""
 
-    view: Optional[DbtMetaLookerBase] = None
-    explore: Optional[DbtMetaLookerBase] = None
+    view: Optional[DbtMetaLookerBase] = DbtMetaLookerBase()
+    explore: Optional[DbtMetaLookerBase] = DbtMetaLookerBase()
     measures: Optional[List[DbtMetaLookerDerivedMeasure]] = Field(default=[])
     dimensions: Optional[List[DbtMetaLookerDerivedDimension]] = Field(default=[])
-
-    # Component fields
-    # joins: Optional[List[DbtMetaLookerJoin]] = Field(default=[])

@@ -13,6 +13,7 @@ class DbtParser:
 
     def __init__(self, raw_manifest: Dict, raw_catalog: Dict):
         """Initialize the parser with raw manifest and catalog data."""
+        # self._raw_manifest = raw_manifest
         self._catalog = DbtCatalog(**raw_catalog)
         self._manifest = DbtManifest(**raw_manifest)
         self._model_parser = ModelParser(self._manifest)
@@ -21,7 +22,23 @@ class DbtParser:
 
     def get_models(self, args) -> List[DbtModel]:
         """Parse dbt models from manifest and filter by criteria."""
-        # Get all models
+
+        # t = self._raw_manifest.get("nodes")
+        # for v in t.values():
+        #     if "break" in v.get("name"):
+        #         logging.debug(v.get("name"))
+        #         logging.debug(v.get("unique_id"))
+        #         logging.debug(v.get("resource_type"))
+        #         logging.debug(v.get("relation_name"))
+        #         logging.debug(v.get("db_schema"))
+        #         logging.debug(v.get("path"))
+        #         logging.debug(v.get("description"))
+        #         logging.debug(v.get("tags"))
+        #         logging.debug(v.get("meta"))
+        #         from rich import print
+        #         print(v.get("columns"))
+        #         break
+
         all_models = self._model_parser.get_all_models()
 
         # Get exposed models if needed
