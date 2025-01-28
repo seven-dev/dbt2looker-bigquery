@@ -76,7 +76,7 @@ class Cli:
         )
         parser.add_argument(
             "--exposures-tag",
-            help="add this flag to only generate lookml files for exposures with this tag (not the same as model tags)",
+            help="filter to exposures with a specific tag",
             type=str,
             default=None,
         )
@@ -88,7 +88,7 @@ class Cli:
         )
         parser.add_argument(
             "--use-table-name",
-            help="add this flag to use table names on views and explore",
+            help="Experimental: add this flag to use table names on views and explore",
             action="store_true",
         )
         parser.add_argument(
@@ -98,7 +98,7 @@ class Cli:
         )
         parser.add_argument(
             "--generate-locale",
-            help="Generate locale files for each label on each field in view",
+            help="Experimental: Generate locale files for each label on each field in view",
             action="store_true",
         )
         parser.add_argument(
@@ -113,7 +113,7 @@ class Cli:
         )
         parser.add_argument(
             "--remove-prefix-from-dataset",
-            help="Remove prefix from dataset name, only works with 'BIGQUERY_DATASET' folder structure",
+            help="Experimental: Remove prefix from dataset name, only works with 'BIGQUERY_DATASET' folder structure",
             type=str,
         )
         parser.add_argument(
