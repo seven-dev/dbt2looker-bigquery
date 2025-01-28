@@ -190,13 +190,15 @@ class Cli:
             models = self.parse(args)
             self.generate(args, models)
 
-            deprecations = list()
-            for msg, cat, fname, lineno in captured_warnings:
-                deprecations.append(f"{cat.__name__} {msg}")
-            if deprecations:
-                for deprecation in set(deprecations):
-                    logging.warning(deprecation)
+            deprecation_messages = []
+            for msg, cat, _, _ in captured_warnings:
+                key = f"{cat.__name__}: {msg}"
+                if key not in deprecation_messages:
+                    deprecation_messages.append(key)
 
+            if deprecation_messages:
+                for deprecation in deprecation_messages:
+                    logging.warning(deprecation)
         except CliError:
             # Logs should already be printed by the handler
             logging.error("Error occurred during generation. Stopped execution.")

@@ -13,30 +13,44 @@ from dbt2looker_bigquery.models.looker import (
     DbtMetaLooker,
     DbtMetaColumnLooker,
     DbtMetaLookerBase,
-    DbtMetaLookerDimension,
 )
 
 
-class TestDbtModels:
-    relation_name = "base.test_model"
-    resource_type = "model"
-    db_schema = "my_schema"
-    fallback_db_schema = "undefined schema"
-    model_name = "test_model"
-    unique_id = "test_model.id"
-    path = "models/test_model.sql"
-    description = ""
+class TestCaseBuilder:
+    cases = []
 
-    sparse_model = {
-        "resource_type": resource_type,
-        "relation_name": relation_name,
-        "schema": db_schema,
-        "name": model_name,
-        "unique_id": unique_id,
-        "tags": [],
-        "path": path,
-        "description": description,
-    }
+    @staticmethod
+    def create(
+        cases,
+        additional_case_data=None,
+        expected_measures=0,
+        expected_dimensions=0,
+        id=None,
+    ):
+        def base_model():
+            return {
+                "resource_type": "model",
+                "relation_name": "base.test_model",
+                "schema": "my_schema",
+                "name": "test_model",
+                "unique_id": "test_model.id",
+                "tags": [],
+                "path": "models/test_model.sql",
+                "description": "",
+                "meta": {},
+            }
+
+        new_case = base_model()
+        if additional_case_data:
+            new_case.update(additional_case_data)
+        cases.append(
+            {
+                "case": new_case,
+                "expected_measures": expected_measures,
+                "expected_dimensions": expected_dimensions,
+                "id": id,
+            }
+        )
 
     well_defined_model_params = {
         "description": "A test model",
@@ -58,10 +72,9 @@ class TestDbtModels:
                 },
             }
         },
-        "path": path,
+        "path": "models/test_model.sql",
     }
-    well_defined_model = sparse_model.copy()
-    well_defined_model.update(well_defined_model_params)
+    create(cases, well_defined_model_params, 0, 1, "well_defined_model")
 
     malformed_looker_dimension_params = {
         "columns": {
@@ -73,8 +86,7 @@ class TestDbtModels:
             }
         }
     }
-    malformed_looker_dimension = sparse_model.copy()
-    malformed_looker_dimension.update(malformed_looker_dimension_params)
+    create(cases, malformed_looker_dimension_params, 0, 1, "malformed_looker_dimension")
 
     malformed_looker_model_measure_params = {
         "columns": {
@@ -86,8 +98,13 @@ class TestDbtModels:
             }
         }
     }
-    malformed_looker_model_measure = sparse_model.copy()
-    malformed_looker_model_measure.update(malformed_looker_model_measure)
+    create(
+        cases,
+        malformed_looker_model_measure_params,
+        0,
+        1,
+        "malformed_looker_model_measure",
+    )
 
     malformed_looker_view_definition_params = {
         "meta": {
@@ -99,8 +116,13 @@ class TestDbtModels:
             },
         },
     }
-    malformed_looker_view_definition = sparse_model.copy()
-    malformed_looker_view_definition.update(malformed_looker_view_definition_params)
+    create(
+        cases,
+        malformed_looker_view_definition_params,
+        0,
+        0,
+        "malformed_looker_view_definition",
+    )
 
     malformed_looker_view_definition_measures_params = {
         "meta": {
@@ -112,9 +134,12 @@ class TestDbtModels:
             },
         },
     }
-    malformed_looker_view_definition_measures = sparse_model.copy()
-    malformed_looker_view_definition_measures.update(
-        malformed_looker_view_definition_measures_params
+    create(
+        cases,
+        malformed_looker_view_definition_measures_params,
+        0,
+        0,
+        "malformed_looker_view_definition_measures",
     )
 
     malformed_looker_view_definition_explore_params = {
@@ -127,64 +152,66 @@ class TestDbtModels:
             },
         },
     }
-    malformed_looker_view_definition_explore = sparse_model.copy()
-    malformed_looker_view_definition_explore.update(
-        malformed_looker_view_definition_explore_params
+    create(
+        cases,
+        malformed_looker_view_definition_explore_params,
+        0,
+        0,
+        "malformed_looker_view_definition_explore",
     )
 
     malformed_looker_view_definition_dimension_params = {
         "meta": {
             "looker": {
-                "dimension": {
+                "dimensions": {
                     "hidden": "yes",
                     "label": 1,
                 },
             },
         },
     }
-    malformed_looker_view_definition_dimension = sparse_model.copy()
-    malformed_looker_view_definition_dimension.update(
-        malformed_looker_view_definition_dimension_params
+    create(
+        cases,
+        malformed_looker_view_definition_dimension_params,
+        0,
+        0,
+        "malformed_looker_view_definition_dimension",
     )
 
-    @pytest.mark.parametrize(
-        "node",
-        [
-            well_defined_model,
-            sparse_model,
-            malformed_looker_dimension,
-            malformed_looker_model_measure,
-            malformed_looker_view_definition,
-            malformed_looker_view_definition_measures,
-            malformed_looker_view_definition_explore,
-            malformed_looker_view_definition_dimension,
-        ],
-    )
-    def test_dbt_model_creation(self, node):
-        """Test creating a DbtModel instance"""
-        model = DbtModel(**node)
-        assert model.name == self.model_name
-        assert model.resource_type == self.resource_type
-        if "schema" in node:
-            assert model.db_schema == self.db_schema
-        else:
-            assert model.db_schema == self.fallback_db_schema
-        assert model.relation_name == self.relation_name
-        assert model.unique_id == self.unique_id
-        assert model.path == self.path
-        assert isinstance(model.meta, DbtModelMeta)
-        assert isinstance(model.meta.looker, DbtMetaLooker)
-        assert isinstance(model.meta.looker.view, DbtMetaLookerBase)
-        assert model.meta.looker.view.label == node.get("meta", {}).get(
-            "looker", {}
-        ).get("view", {}).get("label")
-        assert len(model.columns) == len(node.get("columns", {}))
-        for column in model.columns.values():
-            assert isinstance(column, DbtModelColumn)
-            assert isinstance(column.meta, DbtModelColumnMeta)
-            assert isinstance(column.meta.looker, DbtMetaColumnLooker)
-            assert isinstance(column.meta.looker.dimension, DbtMetaLookerDimension)
 
+@pytest.mark.parametrize(
+    "case", TestCaseBuilder.cases, ids=[case["id"] for case in TestCaseBuilder.cases]
+)
+def test_dbt_model_creation(case):
+    path = "models/test_model.sql"
+    relation_name = "base.test_model"
+    resource_type = "model"
+    db_schema = "my_schema"
+    fallback_db_schema = "undefined schema"
+    model_name = "test_model"
+    unique_id = "test_model.id"
+    case_data = case["case"]
+    model = DbtModel(**case_data)
+    assert model.name == model_name
+    assert model.resource_type == resource_type
+    if "schema" in case_data:
+        assert model.db_schema == db_schema
+    else:
+        assert model.db_schema == fallback_db_schema
+    assert model.relation_name == relation_name
+    assert model.unique_id == unique_id
+    assert model.path == path
+    assert isinstance(model.meta, DbtModelMeta)
+    assert isinstance(model.meta.looker, DbtMetaLooker)
+    assert isinstance(model.meta.looker.view, DbtMetaLookerBase)
+    assert len(model.columns) == case["expected_dimensions"]
+    for column in model.columns.values():
+        assert isinstance(column, DbtModelColumn)
+        assert isinstance(column.meta, DbtModelColumnMeta)
+        assert isinstance(column.meta.looker, DbtMetaColumnLooker)
+
+
+class TestDbtModels:
     def test_dbt_model_column_validation(self):
         """Test DbtModelColumn validation"""
         column = DbtModelColumn(

@@ -1,6 +1,6 @@
 from typing import List, Optional, Union
 import logging
-from pydantic import BaseModel, Field, model_validator, field_validator
+from pydantic import BaseModel, Field, model_validator, field_validator, ValidationError
 import warnings
 from dbt2looker_bigquery.warnings import DeprecationWarning
 
@@ -89,19 +89,19 @@ class DbtMetaLookerMeasure(DbtMetaLookerViewElement):
         if type(values) is dict:
             measure_type = values.get("type")
 
-            if (
-                any(
-                    v is not None
-                    for v in [
-                        values.get("approximate"),
-                        values.get("approximate_threshold"),
-                        values.get("sql_distinct_key"),
-                    ]
-                )
-                and measure_type != LookerMeasureType.COUNT_DISTINCT
+            if any(
+                v is not None
+                for v in [
+                    values.get("approximate"),
+                    values.get("approximate_threshold"),
+                    values.get("sql_distinct_key"),
+                ]
+            ) and measure_type not in (
+                LookerMeasureType.COUNT_DISTINCT,
+                LookerMeasureType.SUM_DISTINCT,
             ):
                 raise ValueError(
-                    "approximate, approximate_threshold, and sql_distinct_key can only be used with count_distinct measures"
+                    "approximate, approximate_threshold, and sql_distinct_key can only be used with distinct measures"
                 )
 
             if values.get(
@@ -173,88 +173,162 @@ class DbtMetaLookerDerivedDimension(DbtMetaLookerDimension):
 class DbtMetaColumnLooker(DbtMetaLookerViewElement):
     """Looker metadata for a column in a dbt model"""
 
-    dimension: Optional[DbtMetaLookerDimension] = None
-    measures: Optional[List[DbtMetaLookerMeasure]] = Field(default=[])
+    dimension: Optional[DbtMetaLookerDimension] = DbtMetaLookerDimension()
+    measures: List[Union[DbtMetaLookerMeasure, BaseModel]] = []
 
     @model_validator(mode="before")
     def warn_outdated(cls, values):
-        label = None
-        hidden = None
-        description = None
-        value_format_name = None
-        group_label = None
-        if values.get("label"):
-            label = values.get("label")
-        if values.get("hidden"):
-            hidden = values.get("hidden")
-        if values.get("description"):
-            description = values.get("description")
-        if values.get("value_format_name"):
-            value_format_name = values.get("value_format_name")
-        if values.get("group_label"):
-            group_label = values.get("group_label")
+        dimension_attrs = {
+            "label": values.get("label"),
+            "hidden": values.get("hidden"),
+            "description": values.get("description"),
+            "value_format_name": values.get("value_format_name"),
+            "group_label": values.get("group_label"),
+        }
 
-        if label or hidden or description or value_format_name:
-            if "dimension" not in values or values["dimension"] is None:
-                values["dimension"] = {}
-                values["dimension"]["label"] = label if label else None
-                values["dimension"]["group_label"] = (
-                    group_label if group_label else None
+        outdated_attrs = any(dimension_attrs.values())
+        if outdated_attrs and not values.get("dimension"):
+            values["dimension"] = dimension_attrs
+            warnings.warn(
+                "Putting dimension attributes in 'looker' is outdated and should be moved to 'looker: dimension:'.",
+                DeprecationWarning,
+            )
+
+        validated_dimension = None
+        dimension = values.get("dimension")
+        if dimension:
+            values.pop("dimension")
+            try:
+                if type(dimension) is DbtMetaLookerDimension:
+                    validated_dimension = dimension
+                else:
+                    validated_dimension = DbtMetaLookerDimension(**dimension)
+            except (ValidationError, TypeError) as e:
+                logging.warning(f"Invalid dimension: {dimension}. Error: {str(e)}")
+                validated_dimension = None
+            if validated_dimension:
+                values["dimension"] = validated_dimension
+
+        measures = values.get("measures", [])
+        if type(measures) is not list:
+            measures = [measures]
+
+        validated_measures = []
+        for potential_measure in measures:
+            if type(potential_measure) is str:
+                # If the measure is just a string, assume it's the measure type
+                potential_measure = {"type": potential_measure}
+            try:
+                if type(potential_measure) is DbtMetaLookerMeasure:
+                    validated_measures.append(potential_measure)
+                else:
+                    validated_measure = DbtMetaLookerMeasure(**potential_measure)
+                    validated_measures.append(validated_measure)
+            except (ValidationError, TypeError) as e:
+                logging.warning(
+                    f"Invalid measure: {potential_measure}. Error: {str(e)}"
                 )
-                values["dimension"]["hidden"] = hidden if hidden else None
-                values["dimension"]["description"] = (
-                    description if description else None
-                )
-                values["dimension"]["value_format_name"] = (
-                    value_format_name if value_format_name else None
-                )
-                warnings.warn(
-                    "putting dimension attributes in 'looker' is outdated and should be moved to 'looker: dimension:'",
-                    DeprecationWarning,
-                )
+        if validated_measures:
+            values["measures"] = validated_measures
+
         return values
 
-    # @field_validator('measures', mode="before")
-    # def validate_measures(cls, v):
-    #     """ we need to gracefully handle the cases where a measure is malformed
-    #         if not the model is not generated, and the user gets no feedback as to why
-    #     """
-    #     if isinstance(v, list):
-    #         new_submodels = []
-    #         for item in v:
-    #             try:
-    #                 new_submodel = DbtMetaLookerMeasure(**item)
-    #             except ValidationError:
-    #                 new_submodel = None
-    #             except TypeError:
-    #                 new_submodel = None
-    #             new_submodels.append(new_submodel)
-    #         return new_submodels
 
-    #     # Not a list, try to validate as a single submodel
-    #     try:
-    #         return [DbtMetaLookerMeasure(**v)]
-    #     except ValidationError:
-    #         return [None]
-
-    # @field_validator('dimension', mode="before")
-    # def validate_dimensions(cls, v):
-    #     """ we need to gracefully handle the cases where a dimension is malformed
-    #         if not the model is not generated, and the user gets no feedback as to why
-    #     """
-    #     try:
-    #         dimension = DbtMetaLookerDimension(**v)
-    #     except ValidationError:
-    #         dimension = None
-    #     except TypeError:
-    #         dimension = None
-    #     return dimension
-
-
-class DbtMetaLooker(DbtMetaLookerBase):
+class DbtMetaLooker(BaseModel):
     """Looker metadata for a model."""
 
     view: Optional[DbtMetaLookerBase] = DbtMetaLookerBase()
     explore: Optional[DbtMetaLookerBase] = DbtMetaLookerBase()
-    measures: Optional[List[DbtMetaLookerDerivedMeasure]] = Field(default=[])
-    dimensions: Optional[List[DbtMetaLookerDerivedDimension]] = Field(default=[])
+    measures: Optional[List[DbtMetaLookerDerivedMeasure]] = []
+    dimensions: Optional[List[DbtMetaLookerDerivedDimension]] = []
+
+    @model_validator(mode="before")
+    def warn_outdated(cls, values):
+        dimension_attrs = {
+            "label": values.get("label"),
+            "hidden": values.get("hidden"),
+            "description": values.get("description"),
+        }
+
+        outdated_attrs = any(dimension_attrs.values())
+        if outdated_attrs and not values.get("view"):
+            values["view"] = dimension_attrs
+            warnings.warn(
+                "Putting view attributes in 'looker' is outdated and should be moved to 'looker: view:'.",
+                DeprecationWarning,
+                source="values.name",
+            )
+
+        validated_view = None
+        view = values.get("view")
+        if view:
+            values.pop("view")
+            try:
+                if type(view) is DbtMetaLookerBase:
+                    validated_view = view
+                else:
+                    validated_view = DbtMetaLookerBase(**view)
+            except (ValidationError, TypeError) as e:
+                logging.warning(f"Invalid view: {view}. Error: {str(e)}")
+                validated_view = None
+            if validated_view:
+                values["view"] = validated_view
+
+        validated_explore = None
+        explore = values.get("explore")
+        if explore:
+            values.pop("explore")
+            try:
+                if type(explore) is DbtMetaLookerBase:
+                    validated_explore = explore
+                else:
+                    validated_explore = DbtMetaLookerBase(**explore)
+            except (ValidationError, TypeError) as e:
+                logging.warning(f"Invalid explore: {explore}. Error: {str(e)}")
+                validated_explore = None
+            if validated_explore:
+                values["explore"] = validated_explore
+
+        dimensions = values.get("dimensions", [])
+        if type(dimensions) is not list:
+            dimensions = [dimensions]
+
+        validated_dimensions = []
+        for potential_dimension in dimensions:
+            values.pop("dimensions")
+            try:
+                if type(potential_dimension) is DbtMetaLookerDerivedDimension:
+                    validated_dimensions.append(potential_dimension)
+                else:
+                    validated_dimension = DbtMetaLookerDerivedDimension(
+                        **potential_dimension
+                    )
+                    validated_dimensions.append(validated_dimension)
+            except (ValidationError, TypeError) as e:
+                logging.warning(
+                    f"Invalid measure: {potential_dimension}. Error: {str(e)}"
+                )
+        if validated_dimensions:
+            values["dimensions"] = validated_dimensions
+
+        measures = values.get("measures", [])
+        if type(measures) is not list:
+            measures = [measures]
+
+        validated_measures = []
+        for potential_measure in measures:
+            values.pop("measures")
+            try:
+                if type(potential_measure) is DbtMetaLookerDerivedMeasure:
+                    validated_measures.append(potential_measure)
+                else:
+                    validated_measure = DbtMetaLookerDerivedMeasure(**potential_measure)
+                    validated_measures.append(validated_measure)
+            except (ValidationError, TypeError) as e:
+                logging.warning(
+                    f"Invalid measure: {potential_measure}. Error: {str(e)}"
+                )
+        if validated_measures:
+            values["measures"] = validated_measures
+
+        return values
