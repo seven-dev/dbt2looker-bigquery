@@ -52,7 +52,7 @@ class TestIntegration:
             "output/tests/tv/serve_tv_data.view.lkml",
             "label:",
             "count",
-            50,
+            44,
         )
 
     def test_integration_group_label_count(self):

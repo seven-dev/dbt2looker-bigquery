@@ -251,6 +251,7 @@ class DbtMetaLooker(BaseModel):
         dimension_attrs = {
             "label": values.get("label"),
             "hidden": values.get("hidden"),
+            "description": values.get("description"),
         }
 
         outdated_attrs = any(dimension_attrs.values())

@@ -79,13 +79,14 @@ class LookmlViewGenerator:
                 iteration_view["name"] = self._dot.remove_dots(
                     f"{iteration_view['name']}.{prepath}"
                 )
-                if hasattr(iteration_view, "label"):
+
+                prepath_label = prepath.replace("__", " : ").replace("_", " ").title()
+                import logging
+
+                logging.warning(base_view)
+                if base_view.get("label"):
                     iteration_view["label"] = self._dot.textualize_dots(
-                        f"{iteration_view['label']} : {prepath}"
-                    )
-                else:
-                    iteration_view["label"] = self._dot.textualize_dots(
-                        f"{iteration_view["name"]} : {prepath}"
+                        f"{base_view['label']} : {prepath_label}"
                     )
 
             view = self._build_view(

@@ -73,8 +73,15 @@ class LookmlExploreGenerator:
             "name": model.name,
             "hidden": "yes",
         }
+        self._applier.apply_meta_attributes(explore, model, ["description"], "")
         self._applier.apply_meta_attributes(
-            explore, model, ["label", "hidden"], "meta.looker.explore"
+            explore, model, ["label", "description"], "meta.looker.view"
+        )
+        self._applier.apply_meta_attributes(
+            explore,
+            model,
+            ["label", "hidden", "description", "group_label"],
+            "meta.looker.explore",
         )
 
         grouped_columns = self._structure_generator.process_model(model)
