@@ -234,11 +234,15 @@ class DbtMetaColumnLooker(DbtMetaLookerViewElement):
         return values
 
 
+class DbtMetaLookerExplore(BaseModel):
+    group_label: Optional[str] = None
+
+
 class DbtMetaLooker(BaseModel):
     """Looker metadata for a model."""
 
     view: Optional[DbtMetaLookerBase] = DbtMetaLookerBase()
-    explore: Optional[DbtMetaLookerBase] = DbtMetaLookerBase()
+    explore: Optional[DbtMetaLookerExplore] = DbtMetaLookerExplore()
     measures: Optional[List[DbtMetaLookerDerivedMeasure]] = []
     dimensions: Optional[List[DbtMetaLookerDerivedDimension]] = []
 
@@ -247,7 +251,6 @@ class DbtMetaLooker(BaseModel):
         dimension_attrs = {
             "label": values.get("label"),
             "hidden": values.get("hidden"),
-            "description": values.get("description"),
         }
 
         outdated_attrs = any(dimension_attrs.values())

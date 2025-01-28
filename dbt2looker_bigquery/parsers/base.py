@@ -50,7 +50,7 @@ class DbtParser:
                 args.exposures_tag if hasattr(args, "exposures_tag") else None
             )
         if exposed_names:
-            logging.debug(f"Exposures found: {exposed_names}")
+            logging.debug(f"Exposures found: {len(exposed_names)}")
 
         # Filter models based on criteria
         filtered_models = self._model_parser.filter_models(

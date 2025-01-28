@@ -88,6 +88,80 @@ class TestCaseBuilder:
     }
     create(cases, malformed_looker_dimension_params, 0, 1, "malformed_looker_dimension")
 
+    malformed_looker_dimension_and_normal_params = {
+        "columns": {
+            "id": {
+                "name": "id",
+                "description": "Primary key",
+                "data_type": "INT64",
+                "meta": {"looker": {"dimension": {"hidden": "yes", "label": 1}}},
+            },
+            "name": {
+                "name": "name",
+                "description": "Name",
+                "data_type": "STRING",
+                "meta": {"looker": {"dimension": {"hidden": False, "label": "Name"}}},
+            },
+        }
+    }
+    create(
+        cases,
+        malformed_looker_dimension_and_normal_params,
+        0,
+        2,
+        "malformed_looker_dimension_and_normal",
+    )
+
+    malformed_looker_dimension_with_measures_params = {
+        "columns": {
+            "id": {
+                "name": "id",
+                "description": "Primary key",
+                "data_type": "INT64",
+                "meta": {
+                    "looker": {
+                        "dimension": {"hidden": "yes", "label": 1},
+                        "measure": {"sum", "count", "average"},
+                    }
+                },
+            }
+        }
+    }
+    create(
+        cases,
+        malformed_looker_dimension_with_measures_params,
+        3,
+        1,
+        "malformed_looker_dimension_with_measures",
+    )
+
+    malformed_looker_dimension_with_measures_alt_params = {
+        "columns": {
+            "id": {
+                "name": "id",
+                "description": "Primary key",
+                "data_type": "INT64",
+                "meta": {
+                    "looker": {
+                        "dimension": {"hidden": "yes", "label": 1},
+                        "measure": [
+                            {"type": "sum", "label": "sum"},
+                            {"type": "count", "label": "count"},
+                            {"type": "average", "label": "average"},
+                        ],
+                    }
+                },
+            }
+        }
+    }
+    create(
+        cases,
+        malformed_looker_dimension_with_measures_alt_params,
+        3,
+        1,
+        "malformed_looker_dimension_with_measures_alt",
+    )
+
     malformed_looker_model_measure_params = {
         "columns": {
             "id": {
