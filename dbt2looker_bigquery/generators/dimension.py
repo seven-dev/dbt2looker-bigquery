@@ -223,10 +223,7 @@ class LookmlDimensionGenerator:
                 if dimension_group_set:
                     dimension_group_sets.append(dimension_group_set)
                 if dimension:
-                    import logging
-
                     dimensions.extend(dimension)
-                    logging.warning(dimensions)
 
         return {
             "dimensions": dimensions or None,
