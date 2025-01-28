@@ -14,7 +14,7 @@ from dbt2looker_bigquery.generators.utils import (
     map_bigquery_to_looker,
     MetaAttributeApplier,
 )
-from dbt2looker_bigquery.models.dbt import DbtModel, DbtModelColumn
+from dbt2looker_bigquery.models.dbt import DbtModelColumn
 
 
 class LookmlDimensionGenerator:
@@ -160,38 +160,13 @@ class LookmlDimensionGenerator:
             iso_week_of_year = self._create_iso_field("week_of_year", column, sql)
             dimensions = [iso_year, iso_week_of_year]
             dimension_group_set["fields"].extend(
-                [f"{column.name}_iso_year", f"{column.name}_iso_week_of_year"]
+                [
+                    f"{self._adjust_dimension_group_name(column.name)}_iso_year",
+                    f"{self._adjust_dimension_group_name(column.name)}_iso_week_of_year",
+                ]
             )
 
         return dimension_group, dimension_group_set, dimensions
-
-    # def _create_single_array_dimension(self, column: DbtModelColumn) -> dict:
-    #     """Create a dimension for a simple array type."""
-    #     data_type = map_bigquery_to_looker(column.inner_types[0])
-    #     return {
-    #         "name": column.lookml_name,
-    #         "type": data_type,
-    #         "sql": column.lookml_name,
-    #         "description": column.description or "",
-    #     }
-
-    # def _is_single_type_array(self, column: DbtModelColumn) -> bool:
-    #     """Check if column is a simple array type."""
-    #     return column.data_type == "ARRAY" and (
-    #         len(column.inner_types) == 1 and " " not in column.inner_types[0]
-    #     )
-
-    def _add_dimension_to_dimension_group(
-        self, model: DbtModel, dimensions: list = None, main_view: bool = True
-    ):
-        """Add dimensions to dimension groups."""
-        for column in model.columns.values():
-            if column.data_type == "DATE":
-                _, _, dimension_group_dimensions = self.lookml_dimension_group(
-                    column, "date", main_view
-                )
-                if dimension_group_dimensions:
-                    dimensions.extend(dimension_group_dimensions)
 
     def lookml_dimensions_from_model(
         self, column_list: list[DbtModelColumn], is_main_view: bool
@@ -229,27 +204,32 @@ class LookmlDimensionGenerator:
         self, columns: list[DbtModelColumn], is_main_view: bool
     ) -> dict:
         """Generate dimension groups from model."""
+        dimensions = []
         dimension_groups = []
         dimension_group_sets = []
-
-        # First add ISO date dimensions for main view only
-        # if not include_names:  # Only for main view
-        # self._add_dimension_to_dimension_group(model, dimensions, table_format_sql)
 
         for column in columns:
             looker_type = self._get_looker_type(column)
             if looker_type in ("time", "date"):
-                dimension_group, dimension_group_set, _ = self.lookml_dimension_group(
-                    column=column,
-                    looker_type=looker_type,
-                    main_view=is_main_view,
+                dimension_group, dimension_group_set, dimension = (
+                    self.lookml_dimension_group(
+                        column=column,
+                        looker_type=looker_type,
+                        main_view=is_main_view,
+                    )
                 )
                 if dimension_group:
                     dimension_groups.append(dimension_group)
                 if dimension_group_set:
                     dimension_group_sets.append(dimension_group_set)
+                if dimension:
+                    import logging
+
+                    dimensions.extend(dimension)
+                    logging.warning(dimensions)
 
         return {
+            "dimensions": dimensions or None,
             "dimension_groups": dimension_groups or None,
             "dimension_group_sets": dimension_group_sets or None,
         }

@@ -36,6 +36,14 @@ class LookmlViewGenerator:
             column_list, is_main_view
         )
 
+        if (
+            dimensions_groups_dimensions
+            := dimension_generator.lookml_dimension_groups_from_model(
+                column_list, is_main_view
+            ).get("dimensions")
+        ):
+            dimensions.append(dimensions_groups_dimensions)
+
         if dimensions:
             view["dimensions"] = dimensions
 
@@ -81,9 +89,7 @@ class LookmlViewGenerator:
                 )
 
                 prepath_label = prepath.replace("__", " : ").replace("_", " ").title()
-                import logging
 
-                logging.warning(base_view)
                 if base_view.get("label"):
                     iteration_view["label"] = self._dot.textualize_dots(
                         f"{base_view['label']} : {prepath_label}"

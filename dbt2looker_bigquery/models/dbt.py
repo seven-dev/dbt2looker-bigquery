@@ -170,7 +170,7 @@ class DbtModelColumnMeta(BaseModel):
         )  # Use pop to remove from values if it exists
         if looker_measures is not None:
             warnings.warn(
-                "The 'meta: looker: looker_measures' yml path is outdated and measures should be moved to 'meta:looker: measures:'",
+                "The 'meta: looker_measures' yml path is outdated and measures should be moved to 'meta:looker: measures:'",
                 DeprecationWarning,
             )
             looker = values.get("looker", {})
