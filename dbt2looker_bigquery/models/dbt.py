@@ -305,7 +305,7 @@ class DbtManifestMetadata(BaseModel):
     @classmethod
     def adapter_must_be_supported(cls, v):
         """Validate that the adapter type is supported."""
-        if v not in enums.SupportedDbtAdapters:
+        if v not in {adapter.value for adapter in enums.SupportedDbtAdapters}:
             raise UnsupportedDbtAdapterError(
                 f"Adapter type {v} is not supported. "
                 f"Supported adapters are: {[e.value for e in enums.SupportedDbtAdapters]}"
