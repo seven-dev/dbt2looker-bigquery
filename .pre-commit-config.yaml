@@ -7,19 +7,13 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [--fix, --unsafe-fixes]
       - id: ruff-format
 
   # - repo: https://github.com/pre-commit/pre-commit-hooks
   #   rev: v1.2.3
   #   hooks:
   #     - id: flake8
-
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: [--profile=black]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
