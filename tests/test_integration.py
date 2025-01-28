@@ -29,7 +29,7 @@ class TestIntegration:
             content,
             "label:",
             "count",
-            56,
+            50,
         )
         self._test(
             content,
@@ -68,7 +68,7 @@ class TestIntegration:
             content,
             "hidden: yes",
             "count",
-            29,
+            27,
         )
         self._test(
             content,
