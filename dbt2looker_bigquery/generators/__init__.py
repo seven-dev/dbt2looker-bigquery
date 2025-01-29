@@ -34,7 +34,7 @@ class LookmlGenerator:
 
         return model.name.replace("_", " ").title() if hasattr(model, "name") else None
 
-    def _get_file_path(self, model: DbtModel, base_view_name: str) -> str:
+    def _get_file_path(self, model: DbtModel) -> str:
         """Get the file path for the LookML view."""
         if self._cli_args.folder_structure == "BIGQUERY_DATASET":
             file_path = model.db_schema
@@ -43,12 +43,12 @@ class LookmlGenerator:
                     f"{self._cli_args.remove_prefix_from_dataset}.", ""
                 )
         elif self._cli_args.folder_structure == "DBT_FOLDER":
-            file_path = os.path.join(model.path.split(model.name)[0])
+            file_path = os.path.join(model.path.split(model.name)[0][:-1])
 
         if self._cli_args.use_table_name:
             file_name = model.relation_name.split(".")[-1].strip("`")
         else:
-            file_name = base_view_name
+            file_name = model.name
 
         return f"{file_path}/{file_name}.view.lkml"
 
@@ -73,7 +73,7 @@ class LookmlGenerator:
             if explore:
                 lookml["explore"] = explore
 
-        return self._get_file_path(model, model.name), lookml
+        return self._get_file_path(model), lookml
 
 
 __all__ = ["LookmlGenerator"]

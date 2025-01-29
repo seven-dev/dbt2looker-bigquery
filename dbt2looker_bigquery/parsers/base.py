@@ -23,22 +23,6 @@ class DbtParser:
     def get_models(self, args) -> List[DbtModel]:
         """Parse dbt models from manifest and filter by criteria."""
 
-        # t = self._raw_manifest.get("nodes")
-        # for v in t.values():
-        #     if "break" in v.get("name"):
-        #         logging.debug(v.get("name"))
-        #         logging.debug(v.get("unique_id"))
-        #         logging.debug(v.get("resource_type"))
-        #         logging.debug(v.get("relation_name"))
-        #         logging.debug(v.get("db_schema"))
-        #         logging.debug(v.get("path"))
-        #         logging.debug(v.get("description"))
-        #         logging.debug(v.get("tags"))
-        #         logging.debug(v.get("meta"))
-        #         from rich import print
-        #         print(v.get("columns"))
-        #         break
-
         all_models = self._model_parser.get_all_models()
 
         # Get exposed models if needed
@@ -62,12 +46,15 @@ class DbtParser:
 
         # Process models (update with catalog info)
         processed_models = []
+        nodes_without_catalogue = []
         for model in filtered_models:
             if processed_model := self._catalog_parser.process_model(model):
                 processed_models.append(processed_model)
             else:
-                logging.debug(
-                    f"Model {model.unique_id} has no columns in catalog, skipping"
-                )
+                nodes_without_catalogue.append(model.unique_id)
         logging.debug(f"Models after catalog {len(processed_models)}")
+        if nodes_without_catalogue:
+            logging.debug(
+                f"Models without catalog information: {len(nodes_without_catalogue)}"
+            )
         return processed_models

@@ -76,7 +76,7 @@ class LookmlViewGenerator:
 
         base_view = {"name": model.name}
         self._applier.apply_meta_attributes(
-            base_view, model, ["label", "hidden"], "meta.looker.view"
+            base_view, model, ["label"], "meta.looker.view"
         )
 
         for key, column_list in grouped_columns.items():

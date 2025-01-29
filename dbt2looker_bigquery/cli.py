@@ -25,6 +25,10 @@ logging.basicConfig(
 
 class Cli:
     DEFAULT_LOOKML_OUTPUT_DIR = "./views"
+    DEFAULT_TARGET_DIR = "./target"
+    BIGQUERY_DATASET = "BIGQUERY_DATASET"
+    DBT_FOLDER = "DBT_FOLDER"
+    DEFAULT_FOLDER_STRUCTURE = BIGQUERY_DATASET
     HEADER = """
     Convert your dbt models to LookML views
     """
@@ -42,13 +46,14 @@ class Cli:
         )
         parser.add_argument(
             "--version",
+            "-v",
             action="version",
             version=f'dbt2looker_bigquery {version("dbt2looker_bigquery")}',
         )
         parser.add_argument(
             "--target-dir",
             help='Path to dbt target directory containing manifest.json and catalog.json. Default is "./target"',
-            default="./target",
+            default=self.DEFAULT_TARGET_DIR,
             type=str,
         )
         parser.add_argument(
@@ -58,6 +63,7 @@ class Cli:
         )
         parser.add_argument(
             "--log-level",
+            "-log",
             help="Set level of logs. Default is INFO",
             choices=["DEBUG", "INFO", "WARN", "ERROR"],
             type=str,
@@ -73,6 +79,7 @@ class Cli:
             "--exposures-only",
             help="add this flag to only generate lookml files for exposures",
             action="store_true",
+            default=False,
         )
         parser.add_argument(
             "--exposures-tag",
@@ -88,19 +95,21 @@ class Cli:
         )
         parser.add_argument(
             "--use-table-name",
-            help="Experimental: add this flag to use table names on views and explore",
+            help="add this flag to use table names on views and explore instead of dbt file names. useful for versioned models",
             action="store_true",
         )
         parser.add_argument(
             "--select",
-            help="select a specific model to generate lookml for, ignores tag and explore",
-            type=str,
+            "-s",
+            help="select one or more specific models to generate lookml for, ignores tag and explore, Will remove / and .sql if present",
+            nargs="+",
         )
-        parser.add_argument(
-            "--generate-locale",
-            help="Experimental: Generate locale files for each label on each field in view",
-            action="store_true",
-        )
+        # Not implemented yet
+        # parser.add_argument(
+        #     "--generate-locale",
+        #     help="Experimental: Generate locale files for each label on each field in view",
+        #     action="store_true",
+        # )
         parser.add_argument(
             "--all-hidden",
             help="add this flag to force all dimensions and measures to be hidden",
@@ -108,13 +117,19 @@ class Cli:
         )
         parser.add_argument(
             "--folder-structure",
-            help="Define the source of the folder structure. Default is 'BIGQUERY_DATASET', other option is 'DBT_FOLDER'",
-            default="BIGQUERY_DATASET",
+            help=f"Define the source of the folder structure. Default is 'f{self.DEFAULT_FOLDER_STRUCTURE}', options ['{self.BIGQUERY_DATASET}', '{self.DBT_FOLDER}']",
+            default=self.DEFAULT_FOLDER_STRUCTURE,
         )
         parser.add_argument(
             "--remove-prefix-from-dataset",
-            help="Experimental: Remove prefix from dataset name, only works with 'BIGQUERY_DATASET' folder structure",
+            help=f"Remove a prefix from dataset name, only works with '{self.BIGQUERY_DATASET}' folder structure",
             type=str,
+        )
+        parser.add_argument(
+            "--show-arrays-and-structs",
+            help="Experimental: stop arrays and structs from being hidden by default",
+            action="store_false",
+            dest="hide_arrays_and_structs",
         )
         parser.add_argument(
             "--implicit-primary-key",
@@ -122,8 +137,21 @@ class Cli:
             action="store_true",
             default=False,
         )
-
-        parser.set_defaults(build_explore=True)
+        parser.add_argument(
+            "--dry-run",
+            help="Add this flag to run the script without writing any files",
+            action="store_false",
+            dest="write_output",
+        )
+        parser.add_argument(
+            "--strict",
+            help="Experimental: Add this flag to enable strict mode. This will raise an error for any lookml parsing errors and deprecations. It will expect all --select models to generate files.",
+            action="store_true",
+            default=False,
+        )
+        parser.set_defaults(
+            build_explore=True, write_output=True, hide_arrays_and_structs=True
+        )
         return parser
 
     def _write_lookml_file(
@@ -158,11 +186,14 @@ class Cli:
                 model=model,
             )
 
-            view = self._write_lookml_file(
-                output_dir=args.output_dir,
-                file_path=file_path,
-                contents=lkml.dump(lookml),
-            )
+            if args.write_output:
+                view = self._write_lookml_file(
+                    output_dir=args.output_dir,
+                    file_path=file_path,
+                    contents=lkml.dump(lookml),
+                )
+            else:
+                view = lkml.dump(lookml)
 
             views.append(view)
 
@@ -196,12 +227,17 @@ class Cli:
                 if key not in deprecation_messages:
                     deprecation_messages.append(key)
 
-            if deprecation_messages:
-                for deprecation in deprecation_messages:
-                    logging.warning(deprecation)
-        except CliError:
+        except CliError as e:
             # Logs should already be printed by the handler
-            logging.error("Error occurred during generation. Stopped execution.")
+            logging.error(f"Error occurred during generation. Stopped execution. {e}")
+
+        if deprecation_messages:
+            for m in deprecation_messages:
+                logging.warning(m)
+            if args.strict:
+                raise CliError(
+                    "Strict mode enabled. Stopped execution due to warnings."
+                )
 
 
 def main():

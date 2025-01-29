@@ -10,6 +10,7 @@ from dbt2looker_bigquery.enums import (
     LookerTimeTimeframes,
     LookerValueFormatName,
 )
+from dbt2looker_bigquery.generators import LookmlGenerator
 from dbt2looker_bigquery.generators.dimension import LookmlDimensionGenerator
 from dbt2looker_bigquery.generators.measure import LookmlMeasureGenerator
 from dbt2looker_bigquery.generators.view import LookmlViewGenerator
@@ -423,5 +424,103 @@ def test_view_definition(cli_args):
     assert view_definition["name"] == "test_model"
     assert view_definition["label"] == custom_view_label
     assert view_definition["sql_table_name"] == "`project.dataset.table_name`"
+    # views cannot have a description
     assert hasattr(view_definition, "description") is False
-    assert view_definition["hidden"] == "no"
+    # views cannot be hidden
+    assert hasattr(view_definition, "hidden") is False
+
+
+@pytest.fixture
+def naming_model():
+    return DbtModel(
+        name="test_model",
+        path="models/test_model.sql",
+        schema="dbt_grognerud_bigquery_dataset_name",
+        relation_name="`project.bigquery_dataset.relation_name`",
+        unique_id="irrelevant",
+        resource_type="model",
+        description="Test model",
+        tags=[],
+        meta=DbtModelMeta(),
+    )
+
+
+def test_writer_bigquery(naming_model):
+    """Test writing paths"""
+    cli_args = Namespace(
+        folder_structure="BIGQUERY_DATASET",
+        remove_prefix_from_dataset="",
+        use_table_name=False,
+    )
+
+    generator = LookmlGenerator(cli_args)
+    assert (
+        "dbt_grognerud_bigquery_dataset_name/test_model.view.lkml"
+        == generator._get_file_path(naming_model)
+    )
+
+
+def test_writer_dbt_folder(naming_model):
+    """Test writing paths"""
+    cli_args = Namespace(
+        folder_structure="DBT_FOLDER",
+        remove_prefix_from_dataset="",
+        use_table_name=False,
+    )
+
+    generator = LookmlGenerator(cli_args)
+    assert "models/test_model.view.lkml" == generator._get_file_path(naming_model)
+
+
+def test_writer_dbt_folder_remove_prefix(naming_model):
+    """Test writing paths"""
+    cli_args = Namespace(
+        folder_structure="DBT_FOLDER",
+        remove_prefix_from_dataset="mod",
+        use_table_name=False,
+    )
+
+    generator = LookmlGenerator(cli_args)
+    assert "models/test_model.view.lkml" == generator._get_file_path(naming_model)
+
+
+def test_writer_bigquery_remove_prefix(naming_model):
+    """Test writing paths"""
+    cli_args = Namespace(
+        folder_structure="BIGQUERY_DATASET",
+        remove_prefix_from_dataset="dbt_grognerud_",
+        use_table_name=False,
+    )
+
+    generator = LookmlGenerator(cli_args)
+    assert (
+        "dbt_grognerud_bigquery_dataset_name/test_model.view.lkml"
+        == generator._get_file_path(naming_model)
+    )
+
+
+def test_writer_bigquery_use_table_name(naming_model):
+    """Test writing paths"""
+    cli_args = Namespace(
+        folder_structure="BIGQUERY_DATASET",
+        remove_prefix_from_dataset="",
+        use_table_name=True,
+    )
+
+    generator = LookmlGenerator(cli_args)
+    assert (
+        "dbt_grognerud_bigquery_dataset_name/relation_name.view.lkml"
+        == generator._get_file_path(naming_model)
+    )
+
+
+def test_writer_dbt_folder_use_table_name(naming_model):
+    """Test writing paths"""
+    cli_args = Namespace(
+        folder_structure="DBT_FOLDER",
+        remove_prefix_from_dataset="",
+        use_table_name=True,
+    )
+
+    generator = LookmlGenerator(cli_args)
+    assert "models/relation_name.view.lkml" == generator._get_file_path(naming_model)

@@ -84,7 +84,8 @@ class LookmlDimensionGenerator:
 
         # Handle array and struct types
         if "ARRAY" in f"{column.data_type}":
-            dimension["hidden"] = "yes"
+            if self._cli_args.hide_arrays_and_structs:
+                dimension["hidden"] = "yes"
             dimension["tags"] = ["array"]
             dimension.pop("type", None)
         elif "STRUCT" in f"{column.data_type}":
