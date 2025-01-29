@@ -11,7 +11,6 @@ except ImportError:
 
 import logging
 
-from rich import print
 from rich.logging import RichHandler
 
 from dbt2looker_bigquery.exceptions import CliError
@@ -189,8 +188,6 @@ class Cli:
                 )
             else:
                 view = lkml.dump(lookml)
-                if args.print:
-                    print(view)
 
             views.append(view)
 
