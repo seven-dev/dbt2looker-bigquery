@@ -13,9 +13,3 @@
   language: python
   require_serial: true
   types_or: [sql]
-
-- id: dbt2looker-print
-  name: print
-  entry: dbt2looker -p -s
-  description: "print Looker model files catalog and manifest"
-  language: python
