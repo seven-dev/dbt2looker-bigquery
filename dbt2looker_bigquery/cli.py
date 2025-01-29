@@ -135,13 +135,6 @@ class Cli:
             default=False,
         )
         parser.add_argument(
-            "--print",
-            "-p",
-            help="Experimental: Print the lookml to the console instead of writing to a file",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
             "--dry-run",
             help="Experimental: Add this flag to run the script without writing any files",
             action="store_false",
@@ -149,7 +142,7 @@ class Cli:
         )
         parser.add_argument(
             "--strict",
-            help="Experimental: Add this flag to enable strict mode. This will raise an error for any lookml parsing errors",
+            help="Experimental: Add this flag to enable strict mode. This will raise an error for any lookml parsing errors and deprecations. It will expect all --select models to generate files.",
             action="store_true",
             default=False,
         )
@@ -195,10 +188,9 @@ class Cli:
                     contents=lkml.dump(lookml),
                 )
             else:
+                view = lkml.dump(lookml)
                 if args.print:
-                    view = print(lkml.dump(lookml))
-                else:
-                    view = lkml.dump(lookml)
+                    print(view)
 
             views.append(view)
 
