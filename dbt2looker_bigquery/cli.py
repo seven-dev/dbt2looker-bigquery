@@ -227,12 +227,17 @@ class Cli:
                 if key not in deprecation_messages:
                     deprecation_messages.append(key)
 
-            if deprecation_messages:
-                for deprecation in deprecation_messages:
-                    logging.warning(deprecation)
-        except CliError:
+        except CliError as e:
             # Logs should already be printed by the handler
-            logging.error("Error occurred during generation. Stopped execution.")
+            logging.error(f"Error occurred during generation. Stopped execution. {e}")
+
+        if deprecation_messages:
+            for m in deprecation_messages:
+                logging.warning(m)
+            if args.strict:
+                raise CliError(
+                    "Strict mode enabled. Stopped execution due to warnings."
+                )
 
 
 def main():

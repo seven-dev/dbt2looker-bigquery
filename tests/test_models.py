@@ -252,6 +252,35 @@ class TestCaseBuilder:
         "malformed_looker_view_definition_dimension",
     )
 
+    malformed_looker_view_definition_dimension_too_many_params = {
+        "meta": {
+            "looker": {
+                "explore": {
+                    "label": {"hidden": "yes", "label": 1},
+                    "group_label": {"hidden": "yes", "label": 1},
+                    "description": ["hidden", "yes", "label", 1],
+                },
+                "measures": {
+                    "type": "mellon",
+                    "hidden": "yes",
+                    "label": 1,
+                },
+                "dimensions": {
+                    "hidden": "yes",
+                    "label": 1,
+                },
+            },
+            "other_key": {"tangerine": True},
+        },
+    }
+    create(
+        cases,
+        malformed_looker_view_definition_dimension_too_many_params,
+        0,
+        0,
+        "malformed_looker_view_definition_dimension_too_many_params",
+    )
+
 
 @pytest.mark.parametrize(
     "case", TestCaseBuilder.cases, ids=[case["id"] for case in TestCaseBuilder.cases]

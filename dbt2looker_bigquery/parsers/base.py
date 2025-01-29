@@ -46,12 +46,15 @@ class DbtParser:
 
         # Process models (update with catalog info)
         processed_models = []
+        nodes_without_catalogue = []
         for model in filtered_models:
             if processed_model := self._catalog_parser.process_model(model):
                 processed_models.append(processed_model)
             else:
-                logging.debug(
-                    f"Model {model.unique_id} has no columns in catalog, skipping"
-                )
+                nodes_without_catalogue.append(model.unique_id)
         logging.debug(f"Models after catalog {len(processed_models)}")
+        if nodes_without_catalogue:
+            logging.debug(
+                f"Models without catalog information: {len(nodes_without_catalogue)}"
+            )
         return processed_models
