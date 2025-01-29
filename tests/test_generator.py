@@ -423,5 +423,7 @@ def test_view_definition(cli_args):
     assert view_definition["name"] == "test_model"
     assert view_definition["label"] == custom_view_label
     assert view_definition["sql_table_name"] == "`project.dataset.table_name`"
+    # views cannot have a description
     assert hasattr(view_definition, "description") is False
-    assert view_definition["hidden"] == "no"
+    # views cannot be hidden
+    assert hasattr(view_definition, "hidden") is False

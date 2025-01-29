@@ -11,6 +11,7 @@ except ImportError:
 
 import logging
 
+from rich import print
 from rich.logging import RichHandler
 
 from dbt2looker_bigquery.exceptions import CliError
@@ -25,6 +26,7 @@ logging.basicConfig(
 
 class Cli:
     DEFAULT_LOOKML_OUTPUT_DIR = "./views"
+    DEFAULT_TARGET_DIR = "./target"
     HEADER = """
     Convert your dbt models to LookML views
     """
@@ -42,13 +44,14 @@ class Cli:
         )
         parser.add_argument(
             "--version",
+            "-v",
             action="version",
             version=f'dbt2looker_bigquery {version("dbt2looker_bigquery")}',
         )
         parser.add_argument(
             "--target-dir",
             help='Path to dbt target directory containing manifest.json and catalog.json. Default is "./target"',
-            default="./target",
+            default=self.DEFAULT_TARGET_DIR,
             type=str,
         )
         parser.add_argument(
@@ -58,6 +61,7 @@ class Cli:
         )
         parser.add_argument(
             "--log-level",
+            "-log",
             help="Set level of logs. Default is INFO",
             choices=["DEBUG", "INFO", "WARN", "ERROR"],
             type=str,
@@ -73,6 +77,7 @@ class Cli:
             "--exposures-only",
             help="add this flag to only generate lookml files for exposures",
             action="store_true",
+            default=False,
         )
         parser.add_argument(
             "--exposures-tag",
@@ -93,8 +98,9 @@ class Cli:
         )
         parser.add_argument(
             "--select",
-            help="select a specific model to generate lookml for, ignores tag and explore",
-            type=str,
+            "-s",
+            help="select one or more specific models to generate lookml for, ignores tag and explore, Will remove / and .sql if present",
+            nargs="+",
         )
         parser.add_argument(
             "--generate-locale",
@@ -117,13 +123,37 @@ class Cli:
             type=str,
         )
         parser.add_argument(
+            "--show_arrays_and_structs",
+            help="Experimental: show arrays and structs in the view in the main view",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
             "--implicit-primary-key",
             help="Add this flag to set primary keys on views based on the first field",
             action="store_true",
             default=False,
         )
-
-        parser.set_defaults(build_explore=True)
+        parser.add_argument(
+            "--print",
+            "-p",
+            help="Experimental: Print the lookml to the console instead of writing to a file",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
+            "--dry-run",
+            help="Experimental: Add this flag to run the script without writing any files",
+            action="store_false",
+            dest="write_output",
+        )
+        parser.add_argument(
+            "--strict",
+            help="Experimental: Add this flag to enable strict mode. This will raise an error for any lookml parsing errors",
+            action="store_true",
+            default=False,
+        )
+        parser.set_defaults(build_explore=True, write_output=True)
         return parser
 
     def _write_lookml_file(
@@ -158,11 +188,17 @@ class Cli:
                 model=model,
             )
 
-            view = self._write_lookml_file(
-                output_dir=args.output_dir,
-                file_path=file_path,
-                contents=lkml.dump(lookml),
-            )
+            if args.write_output:
+                view = self._write_lookml_file(
+                    output_dir=args.output_dir,
+                    file_path=file_path,
+                    contents=lkml.dump(lookml),
+                )
+            else:
+                if args.print:
+                    view = print(lkml.dump(lookml))
+                else:
+                    view = lkml.dump(lookml)
 
             views.append(view)
 

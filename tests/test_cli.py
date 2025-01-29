@@ -65,7 +65,7 @@ def test_parse_args_all_options():
     assert args.tag == "analytics"
     assert args.build_explore is False  # --skip-explore was used
     assert args.use_table_name is True
-    assert args.select == "model_name"
+    assert args.select == ["model_name"]
     assert args.log_level == "DEBUG"
     assert args.exposures_only is True
     assert args.generate_locale is True

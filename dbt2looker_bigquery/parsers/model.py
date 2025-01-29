@@ -32,10 +32,21 @@ class ModelParser:
 
         return all_models
 
+    def _strip_model_name(self, model_name: str) -> str:
+        """Clean model names from dbt paths."""
+        # remove before / eg model/name = name
+        if "/" in model_name:
+            model_name = model_name.split("/")[-1]
+        # remove after . eg model_name.sql = model_name
+        if "." in model_name:
+            model_name = model_name.split(".")[0]
+
+        return model_name
+
     def filter_models(
         self,
         models_list: List[DbtModel],
-        select_model: Optional[str] = None,
+        select_model: Optional[list[str]] = None,
         tag: Optional[str] = None,
         exposed_names: Optional[List[str]] = None,
     ) -> List[DbtModel]:
@@ -43,8 +54,11 @@ class ModelParser:
         filtered = models_list
 
         if select_model:
+            selection_criteria = [
+                self._strip_model_name(selector) for selector in select_model
+            ]
             filtered_models = [
-                model for model in filtered if model.name == select_model
+                model for model in filtered if model.name in selection_criteria
             ]
             logging.debug(f"Filtered models after select: {len(filtered_models)}")
             return filtered_models

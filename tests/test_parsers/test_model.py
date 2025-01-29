@@ -72,9 +72,15 @@ class TestModelParser:
         all_models = parser.get_all_models()
 
         # Test filtering by select_model
-        filtered = parser.filter_models(all_models, select_model="model1")
+        filtered = parser.filter_models(all_models, select_model=["model1"])
         assert len(filtered) == 1
         assert filtered[0].name == "model1"
+
+        filtered_multi = parser.filter_models(
+            all_models, select_model=["model1", "model2"]
+        )
+        assert len(filtered_multi) == 2
+        assert {model.name for model in filtered_multi} == {"model1", "model2"}
 
         # Test filtering by tag
         filtered = parser.filter_models(all_models, tag="analytics")
