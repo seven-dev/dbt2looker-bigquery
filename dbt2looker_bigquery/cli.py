@@ -214,6 +214,8 @@ class Cli:
 
     def run(self):
         """Run the CLI"""
+        deprecation_messages = []
+
         try:
             args = self._args_parser.parse_args()
             logging.getLogger().setLevel(args.log_level)
@@ -221,7 +223,6 @@ class Cli:
             models = self.parse(args)
             self.generate(args, models)
 
-            deprecation_messages = []
             for msg, cat, _, _ in captured_warnings:
                 key = f"{cat.__name__}: {msg}"
                 if key not in deprecation_messages:
