@@ -26,6 +26,9 @@ logging.basicConfig(
 class Cli:
     DEFAULT_LOOKML_OUTPUT_DIR = "./views"
     DEFAULT_TARGET_DIR = "./target"
+    BIGQUERY_DATASET = "BIGQUERY_DATASET"
+    DBT_FOLDER = "DBT_FOLDER"
+    DEFAULT_FOLDER_STRUCTURE = BIGQUERY_DATASET
     HEADER = """
     Convert your dbt models to LookML views
     """
@@ -92,7 +95,7 @@ class Cli:
         )
         parser.add_argument(
             "--use-table-name",
-            help="Experimental: add this flag to use table names on views and explore",
+            help="add this flag to use table names on views and explore instead of dbt file names. useful for versioned models",
             action="store_true",
         )
         parser.add_argument(
@@ -101,11 +104,12 @@ class Cli:
             help="select one or more specific models to generate lookml for, ignores tag and explore, Will remove / and .sql if present",
             nargs="+",
         )
-        parser.add_argument(
-            "--generate-locale",
-            help="Experimental: Generate locale files for each label on each field in view",
-            action="store_true",
-        )
+        # Not implemented yet
+        # parser.add_argument(
+        #     "--generate-locale",
+        #     help="Experimental: Generate locale files for each label on each field in view",
+        #     action="store_true",
+        # )
         parser.add_argument(
             "--all-hidden",
             help="add this flag to force all dimensions and measures to be hidden",
@@ -113,19 +117,19 @@ class Cli:
         )
         parser.add_argument(
             "--folder-structure",
-            help="Define the source of the folder structure. Default is 'BIGQUERY_DATASET', other option is 'DBT_FOLDER'",
-            default="BIGQUERY_DATASET",
+            help=f"Define the source of the folder structure. Default is 'f{self.DEFAULT_FOLDER_STRUCTURE}', options ['{self.BIGQUERY_DATASET}', '{self.DBT_FOLDER}']",
+            default=self.DEFAULT_FOLDER_STRUCTURE,
         )
         parser.add_argument(
             "--remove-prefix-from-dataset",
-            help="Experimental: Remove prefix from dataset name, only works with 'BIGQUERY_DATASET' folder structure",
+            help=f"Remove a prefix from dataset name, only works with '{self.BIGQUERY_DATASET}' folder structure",
             type=str,
         )
         parser.add_argument(
-            "--show_arrays_and_structs",
-            help="Experimental: show arrays and structs in the view in the main view",
-            action="store_true",
-            default=False,
+            "--show-arrays-and-structs",
+            help="Experimental: stop arrays and structs from being hidden by default",
+            action="store_false",
+            dest="hide_arrays_and_structs",
         )
         parser.add_argument(
             "--implicit-primary-key",
@@ -135,7 +139,7 @@ class Cli:
         )
         parser.add_argument(
             "--dry-run",
-            help="Experimental: Add this flag to run the script without writing any files",
+            help="Add this flag to run the script without writing any files",
             action="store_false",
             dest="write_output",
         )
@@ -145,7 +149,9 @@ class Cli:
             action="store_true",
             default=False,
         )
-        parser.set_defaults(build_explore=True, write_output=True)
+        parser.set_defaults(
+            build_explore=True, write_output=True, hide_arrays_and_structs=True
+        )
         return parser
 
     def _write_lookml_file(

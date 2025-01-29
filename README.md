@@ -74,7 +74,7 @@ options:
   --implicit-primary-key
 ```
 
-## lookml in dbt
+## lookml in dbt examples
 
 ```yaml
 models:
@@ -101,3 +101,7 @@ models:
               - type: count_distinct
                 label: Distinct number of urls
 ```
+
+## pre-commit hook
+
+You can use dbt2looker-bigquery in your dbt repository as a pre-commit hook, to validate your lookml configuration while working.

@@ -18,7 +18,6 @@ def test_create_parser_default_args():
     assert args.log_level == "INFO"
     assert args.exposures_only is False
     assert args.exposures_tag is None
-    assert args.generate_locale is False
 
 
 def test_skip_explore_flag():
@@ -54,9 +53,11 @@ def test_parse_args_all_options():
             "model_name",
             "--log-level",
             "DEBUG",
-            "--generate-locale",
             "--implicit-primary-key",
             "--all-hidden",
+            "--strict",
+            "--dry-run",
+            "--show-arrays-and-structs",
         ]
     )
 
@@ -68,9 +69,11 @@ def test_parse_args_all_options():
     assert args.select == ["model_name"]
     assert args.log_level == "DEBUG"
     assert args.exposures_only is True
-    assert args.generate_locale is True
     assert args.implicit_primary_key is True
     assert args.all_hidden is True
+    assert args.strict is True
+    assert args.write_output is False
+    assert args.hide_arrays_and_structs is False
 
 
 @patch("dbt2looker_bigquery.cli.DbtParser")
