@@ -44,11 +44,13 @@ class LookmlDimensionGenerator:
     def _create_iso_field(self, field_type: str, dimension_group: dict) -> dict:
         """Create an ISO year or week field."""
         label_type = field_type.replace("_of_year", "")
+        dimension_group_name = dimension_group["name"]
+        dimension_group_sql = dimension_group["sql"]
         field = {
-            "name": f"{dimension_group["name"]}_iso_{field_type}",
+            "name": f"{dimension_group_name}_iso_{field_type}",
             "type": "number",
-            "sql": f"Extract(iso{label_type} from {dimension_group["sql"]})",
-            "description": f"iso year for {dimension_group['name']}",
+            "sql": f"Extract(iso{label_type} from {dimension_group_sql})",
+            "description": f"iso year for {dimension_group_name}",
             "group_label": dimension_group["group_label"],
             "value_format_name": "id",
         }
@@ -58,9 +60,9 @@ class LookmlDimensionGenerator:
     def _get_looker_dimension_group_type(self, column: DbtModelColumn) -> str:
         """Get the category of a column's type."""
         looker_type = map_bigquery_to_looker(column.data_type)
-        if looker_type in LookerDateTimeTypes:
+        if looker_type in LookerDateTimeTypes.values():
             return "time"
-        elif looker_type in LookerDateTypes:
+        elif looker_type in LookerDateTypes.values():
             return "date"
         return "scalar"
 
@@ -73,7 +75,7 @@ class LookmlDimensionGenerator:
         dimension = {"name": column.lookml_name}
 
         # Add type for scalar types (should come before sql)
-        if data_type in LookerScalarTypes:
+        if data_type in LookerScalarTypes.values():
             dimension["type"] = data_type
 
         dimension |= {"sql": sql, "description": column.description or ""}
