@@ -1,4 +1,4 @@
-# dbt2looker-bigquery (active as of 13.9.2024)
+# dbt2looker-bigquery (active as of 06.02.2025)
 
 Use `dbt2looker-bigquery` to generate Looker view files automatically from dbt models in Bigquery.
 
@@ -7,7 +7,7 @@ Use `dbt2looker-bigquery` to generate Looker view files automatically from dbt m
 Higly inspired by dbt2lookml, all credit to @magnus-ffcg for the structure, he has refactored most of the code.
 
 This is a fork of dbt2looker that is specific to bigquery.
-Most of the code has been refactored by @
+
 The intention is to allow one to define most of the simple and tedious lookml settings in dbt.
 That way the lookml code gets less bloated, and can be more focused on advanced metrics and explores.
 

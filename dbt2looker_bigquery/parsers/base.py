@@ -11,14 +11,39 @@ from dbt2looker_bigquery.parsers.model import ModelParser
 class DbtParser:
     """Main DBT parser that coordinates parsing of manifest and catalog files."""
 
-    def __init__(self, raw_manifest: Dict, raw_catalog: Dict):
+    def __init__(self, raw_manifest: Dict, raw_catalog: Dict, args: Dict = None):
         """Initialize the parser with raw manifest and catalog data."""
         # self._raw_manifest = raw_manifest
         self._catalog = DbtCatalog(**raw_catalog)
-        self._manifest = DbtManifest(**raw_manifest)
+
+        if hasattr(args, "select") and hasattr(args, "prefilter") and args.prefilter:
+            filtered_raw_manifest = self.filter_before_pydantic(
+                raw_manifest, args.select
+            )
+            self._manifest = DbtManifest(**filtered_raw_manifest)
+        else:
+            self._manifest = DbtManifest(**raw_manifest)
+
         self._model_parser = ModelParser(self._manifest)
         self._catalog_parser = CatalogParser(self._catalog)
         self._exposure_parser = ExposureParser(self._manifest)
+
+    def filter_before_pydantic(
+        self, raw_manifest: Dict, select_model: List[str]
+    ) -> List[DbtModel]:
+        """Filter models based on multiple criteria."""
+
+        manifest = raw_manifest
+
+        filtered_nodes = {
+            model_name: model
+            for model_name, model in manifest.get("nodes", {}).items()
+            if model_name.split(".")[-1] in select_model
+        }
+
+        manifest["nodes"] = filtered_nodes
+        logging.info(f"Prefiltered manifest to {len(filtered_nodes)} models")
+        return manifest
 
     def get_models(self, args) -> List[DbtModel]:
         """Parse dbt models from manifest and filter by criteria."""

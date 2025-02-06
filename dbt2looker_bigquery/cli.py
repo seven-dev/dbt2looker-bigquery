@@ -149,6 +149,12 @@ class Cli:
             action="store_true",
             default=False,
         )
+        parser.add_argument(
+            "--prefilter",
+            help="Experimental: add this flag to prefilter the manifest.json file before parsing for --select",
+            action="store_true",
+            default=False,
+        )
         parser.set_defaults(
             build_explore=True, write_output=True, hide_arrays_and_structs=True
         )
@@ -209,7 +215,7 @@ class Cli:
             os.path.join(args.target_dir, "catalog.json")
         )
 
-        parser = DbtParser(raw_manifest, raw_catalog)
+        parser = DbtParser(raw_manifest, raw_catalog, args)
         return parser.get_models(args)
 
     def run(self):

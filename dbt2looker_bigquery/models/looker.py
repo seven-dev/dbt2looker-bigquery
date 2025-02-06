@@ -12,27 +12,6 @@ from dbt2looker_bigquery.enums import (
 )
 
 
-class LookerView(BaseModel):
-    """Looker metadata for a view"""
-
-    name: str
-    sql_table_name: Optional[str] = Field(default=None)
-    label: Optional[str] = Field(default=None)
-    hidden: Optional[bool] = Field(default=None)
-    dimensions: Optional[List[dict]] = Field(default=[])
-    measures: Optional[List[dict]] = Field(default=[])
-    sets: Optional[List[dict]] = Field(default=[])
-    dimension_groups: Optional[List[dict]] = Field(default=[])
-
-    def __setitem__(self, key, value):
-        if hasattr(self, key):
-            setattr(self, key, value)
-        else:
-            raise KeyError(
-                f"{key} is not a valid attribute for {self.__class__.__name__}"
-            )
-
-
 class DbtMetaLookerBase(BaseModel):
     label: Optional[str] = None
     hidden: Optional[bool] = None
