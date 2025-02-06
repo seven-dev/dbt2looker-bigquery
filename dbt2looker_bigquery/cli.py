@@ -220,7 +220,7 @@ class Cli:
 
     def run(self):
         """Run the CLI"""
-        deprecation_messages = []
+        user_feedback = []
 
         try:
             args = self._args_parser.parse_args()
@@ -231,20 +231,21 @@ class Cli:
 
             for msg, cat, _, _ in captured_warnings:
                 key = f"{cat.__name__}: {msg}"
-                if key not in deprecation_messages:
-                    deprecation_messages.append(key)
+                if key not in user_feedback:
+                    user_feedback.append(key)
 
         except CliError as e:
             # Logs should already be printed by the handler
             logging.error(f"Error occurred during generation. Stopped execution. {e}")
 
-        if deprecation_messages:
-            for m in deprecation_messages:
-                logging.warning(m)
+        if user_feedback:
+            for m in user_feedback:
+                if args.strict:
+                    logging.error(m)
+                else:
+                    logging.warning(m)
             if args.strict:
-                raise CliError(
-                    "Strict mode enabled. Stopped execution due to warnings."
-                )
+                exit(1)
 
 
 def main():
