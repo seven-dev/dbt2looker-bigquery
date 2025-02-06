@@ -62,6 +62,8 @@ class LookmlViewGenerator:
         ).get("dimension_group_sets"):
             view["sets"] = sets
 
+        view.pop("array_name", None)
+
         return view
 
     def generate(
@@ -87,6 +89,7 @@ class LookmlViewGenerator:
                 iteration_view["name"] = self._dot.remove_dots(
                     f"{iteration_view['name']}.{prepath}"
                 )
+                iteration_view["array_name"] = prepath
 
                 prepath_label = prepath.replace("__", " : ").replace("_", " ").title()
 

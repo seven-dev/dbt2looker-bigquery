@@ -78,7 +78,7 @@ class LookmlDimensionGenerator:
         if data_type in LookerScalarTypes.values():
             dimension["type"] = data_type
 
-        dimension |= {"sql": sql, "description": column.description or ""}
+        dimension.update({"sql": sql, "description": column.description or ""})
 
         # Add primary key attributes
         if column.is_primary_key:

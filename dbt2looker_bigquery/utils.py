@@ -128,32 +128,73 @@ class StructureGenerator:
     def __init__(self, args):
         self._cli_args = args
 
-    def process_model(self, model: DbtModel):
-        """Process the model to group columns for views and joins"""
-        grouped_data = {}
+    def _find_levels(self, model: DbtModel) -> dict:
+        """Return group keys for the model columns by detecting array columns"""
+        grouped_data = {(0, ""): []}
 
         for column in model.columns.values():
-            depth = column.name.count(".")
-            prepath = ".".join(column.name.split(".")[:-1])
+            depth = column.name.count(".") + 1
+            prepath = column.name
+
             key = (depth, prepath)
 
-            if key not in grouped_data:
-                grouped_data[key] = []
-            grouped_data[key].append(column)
-
-            # Add arrays as columns in two depth levels
-            if column.data_type == "ARRAY" and len(column.inner_types) == 1:
-                depth += 1
-                prepath = column.name
-                key = (depth, prepath)
+            if column.data_type == "ARRAY":
                 if key not in grouped_data:
                     grouped_data[key] = []
-                column_copy = column.model_copy()
-                column_copy.is_inner_array_representation = True
-                logging.warning(f"{prepath}: {column.inner_types[0]}")
-                column_copy.data_type = column.inner_types[0]
-                grouped_data[key].append(column_copy)
 
+        return grouped_data
+
+    def _find_permutations(self, column_name: str) -> dict:
+        """Return all permutation keys for a column name"""
+        keys = []
+        path_parts = column_name.split(".")
+        permutations = [
+            ".".join(path_parts[: i + 1]) for i in range(len(path_parts) - 1, -1, -1)
+        ]
+        permutations.append("")
+        for perm in permutations:
+            if perm == "":
+                current_depth = 0
+            else:
+                current_depth = perm.count(".") + 1
+            key = (current_depth, perm)
+            keys.append(key)
+
+        sorted_keys = sorted(keys, key=lambda x: x[0], reverse=True)
+        return sorted_keys
+
+    def _find_max_level(self, grouped_data: dict, model: DbtModel) -> int:
+        """Return the maximum depth level of the model columns"""
+
+    def process_model(self, model: DbtModel):
+        """analyze the model to group columns for views and joins"""
+
+        grouped_data = self._find_levels(model)
+
+        for column in model.columns.values():
+            permutations = self._find_permutations(column.name)
+
+            matched = False
+            if permutations:
+                for permutation_key in permutations:
+                    if not matched and permutation_key in grouped_data.keys():
+                        matched = True
+                        # Add arrays as columns in two depth levels
+                        if column.data_type == "ARRAY":
+                            if permutation_key[1] == column.name:
+                                matched = False
+
+                                if len(column.inner_types) == 1:
+                                    column_copy = column.model_copy()
+                                    column_copy.is_inner_array_representation = True
+                                    column_copy.data_type = column.inner_types[0]
+                                    grouped_data[permutation_key].append(column_copy)
+
+                        if matched:
+                            grouped_data[permutation_key].append(column)
+
+            if not matched:
+                raise Exception(f"Could not find a match for column {column.name}")
         return grouped_data
 
 

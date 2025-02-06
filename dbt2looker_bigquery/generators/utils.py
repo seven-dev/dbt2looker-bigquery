@@ -19,23 +19,22 @@ def map_bigquery_to_looker(column_type: str | None) -> Optional[str]:
 
 def get_sql_expression(column: DbtModelColumn, is_main_view: bool, view: dict) -> str:
     """Get name of column."""
-    if not is_main_view and "." in column.name:
-        return f"{column.lookml_name}"  # it will never return blank, validated in model
+    if column.is_inner_array_representation:
+        return view.get("name")
 
-    if "." in column.name or column.is_inner_array_representation:
-        parent_path = ".".join(column.name.split(".")[:-1])
+    column_name = column.name
 
-        if column.is_inner_array_representation:
-            # inner arrays is the parent path, unnested
-            if view is None:
-                raise ValueError(
-                    f"Internal error: {column.name} View is required for inner array representation"
-                )
-            return view.get("name")
-        else:
-            return f"${{{parent_path}}}.{column.lookml_name}"
+    if "." in column.name:
+        if column.name.startswith(view.get("array_name")):
+            # records in non array structs can be referenced directly
+            column_name = column.name[len(view.get("array_name")) + 1 :]
 
-    return f"${{TABLE}}.{column.name}"
+    if not is_main_view and "." not in column_name:
+        # dimensions in structs can be referenced without the table name
+        return f"{column_name}"
+
+    # default sql formatting
+    return f"${{TABLE}}.{column_name}"
 
 
 class MetaAttributeApplier:

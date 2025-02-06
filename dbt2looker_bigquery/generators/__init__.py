@@ -55,16 +55,7 @@ class LookmlGenerator:
     def generate(self, model: DbtModel) -> Dict:
         """Generate LookML for a model. Can generate multiple views and up to 1 explore."""
 
-        # Create views
-        views = self.view_generator.generate(
-            model=model,
-            dimension_generator=self.dimension_generator,
-            measure_generator=self.measure_generator,
-        )
-
-        lookml = {
-            "view": [views],
-        }
+        lookml = {}
 
         if (
             self._cli_args.build_explore
@@ -72,6 +63,15 @@ class LookmlGenerator:
             explore = self.explore_generator.generate(model=model)
             if explore:
                 lookml["explore"] = explore
+
+        # Create views
+        views = self.view_generator.generate(
+            model=model,
+            dimension_generator=self.dimension_generator,
+            measure_generator=self.measure_generator,
+        )
+
+        lookml["views"] = views
 
         return self._get_file_path(model), lookml
 
