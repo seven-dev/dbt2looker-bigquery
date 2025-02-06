@@ -34,8 +34,10 @@ class LookmlDimensionGenerator:
                 name = name[: -len(suffix)]
         return name.replace("_", " ").title()
 
-    def _adjust_dimension_group_name(self, name: str) -> str:
+    def _adjust_dimension_group_name(self, column: DbtModelColumn, view: dict) -> str:
         """Adjust dimension group name."""
+        name = self._adjust_dimension_name(column, view)
+
         suffix = "_date"
         if name.endswith(suffix):
             name = name[: -len(suffix)]
@@ -111,6 +113,8 @@ class LookmlDimensionGenerator:
             dimension.pop("type", None)
         elif "STRUCT" in f"{column.data_type}":
             dimension["tags"] = ["struct"]
+            if self._cli_args.hide_arrays_and_structs:
+                dimension["hidden"] = "yes"
 
         self._applier.apply_meta_attributes(
             dimension,
@@ -131,16 +135,16 @@ class LookmlDimensionGenerator:
         if map_bigquery_to_looker(column.data_type) is None:
             return None, None, None
 
+        dimension_group_name = self._adjust_dimension_group_name(column, view)
+
         if dimension_group_type == "date":
             looker_type = "time"
             convert_tz = "no"
             timeframes = LookerDateTimeframes.values()
-            column_name_adjusted = self._adjust_dimension_group_name(column.name)
         elif dimension_group_type == "time":
             looker_type = "time"
             convert_tz = "yes"
             timeframes = LookerTimeTimeframes.values()
-            column_name_adjusted = self._adjust_dimension_group_name(column.name)
         else:
             return None, None, None
 
@@ -148,14 +152,14 @@ class LookmlDimensionGenerator:
 
         dimensions = []
         dimension_group = {
-            "name": column_name_adjusted,
+            "name": dimension_group_name,
             "type": looker_type,
             "sql": sql,
             "description": column.description,
             "datatype": map_bigquery_to_looker(column.data_type),
             "timeframes": timeframes,
             "convert_tz": convert_tz,
-            "group_label": column_name_adjusted.replace("_", " ").title(),
+            "group_label": dimension_group_name.replace("_", " ").title(),
         }
         self._applier.apply_meta_attributes(
             dimension_group,
@@ -165,9 +169,9 @@ class LookmlDimensionGenerator:
         )
 
         dimension_group_set = {
-            "name": f"s_{column_name_adjusted}",
+            "name": f"s_{dimension_group_name}",
             "fields": [
-                f"{column_name_adjusted}_{looker_time_timeframe}"
+                f"{dimension_group_name}_{looker_time_timeframe}"
                 for looker_time_timeframe in timeframes
             ],
         }
@@ -178,8 +182,8 @@ class LookmlDimensionGenerator:
             dimensions = [iso_year, iso_week_of_year]
             dimension_group_set["fields"].extend(
                 [
-                    f"{column_name_adjusted}_iso_year",
-                    f"{column_name_adjusted}_iso_week_of_year",
+                    f"{dimension_group_name}_iso_year",
+                    f"{dimension_group_name}_iso_week_of_year",
                 ]
             )
 
