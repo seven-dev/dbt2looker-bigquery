@@ -41,6 +41,23 @@ class LookmlDimensionGenerator:
             name = name[: -len(suffix)]
         return name
 
+    def _adjust_dimension_name(self, column: DbtModelColumn, view: dict) -> str:
+        """Get name of column."""
+
+        if column.is_inner_array_representation:
+            return column.name.split(".")[-1]
+
+        column_name = column.name
+
+        if "." in column.name:
+            if column.name.startswith(view.get("array_name", "")) and view.get(
+                "array_name"
+            ):
+                # records in non array structs can be referenced directly
+                column_name = column.name[len(view.get("array_name")) + 1 :]
+
+        return column_name.replace(".", "__")
+
     def _create_iso_field(self, field_type: str, dimension_group: dict) -> dict:
         """Create an ISO year or week field."""
         label_type = field_type.replace("_of_year", "")
@@ -66,19 +83,21 @@ class LookmlDimensionGenerator:
             return "date"
         return "scalar"
 
-    def _create_dimension(self, column: DbtModelColumn, sql: str) -> Optional[dict]:
+    def _create_dimension(
+        self, column: DbtModelColumn, sql: str, dimension_name: str
+    ) -> Optional[dict]:
         """Create a basic dimension dictionary."""
         data_type = map_bigquery_to_looker(column.data_type)
         if data_type is None:
             return None
 
-        dimension = {"name": column.lookml_name}
+        dimension = {"name": dimension_name}
 
         # Add type for scalar types (should come before sql)
         if data_type in LookerScalarTypes.values():
             dimension["type"] = data_type
 
-        dimension.update({"sql": sql, "description": column.description or ""})
+        dimension |= {"sql": sql, "description": column.description or ""}
 
         # Add primary key attributes
         if column.is_primary_key:
@@ -186,7 +205,9 @@ class LookmlDimensionGenerator:
                 continue
 
             sql = get_sql_expression(column, is_main_view, view)
-            dimension = self._create_dimension(column, sql)
+            dimension_name = self._adjust_dimension_name(column, view)
+
+            dimension = self._create_dimension(column, sql, dimension_name)
 
             if dimension is not None:
                 dimensions.append(dimension)

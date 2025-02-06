@@ -25,13 +25,15 @@ def get_sql_expression(column: DbtModelColumn, is_main_view: bool, view: dict) -
     column_name = column.name
 
     if "." in column.name:
-        if column.name.startswith(view.get("array_name")):
+        if column.name.startswith(view.get("array_name", "")) and view.get(
+            "array_name"
+        ):
             # records in non array structs can be referenced directly
             column_name = column.name[len(view.get("array_name")) + 1 :]
 
     if not is_main_view and "." not in column_name:
         # dimensions in structs can be referenced without the table name
-        return f"{column_name}"
+        return column_name
 
     # default sql formatting
     return f"${{TABLE}}.{column_name}"
