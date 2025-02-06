@@ -1,5 +1,8 @@
 from dbt2looker_bigquery.enums import LookerMeasureType, LookerScalarTypes
-from dbt2looker_bigquery.generators.utils import get_column_name, map_bigquery_to_looker
+from dbt2looker_bigquery.generators.utils import (
+    get_sql_expression,
+    map_bigquery_to_looker,
+)
 from dbt2looker_bigquery.models.dbt import DbtModelColumn
 from dbt2looker_bigquery.models.looker import DbtMetaLookerMeasure
 from dbt2looker_bigquery.generators.utils import MetaAttributeApplier
@@ -57,7 +60,7 @@ class LookmlMeasureGenerator:
         m = {
             "name": f"m_{measure.type.value}_{column.name}",
             "type": measure.type.value,
-            "sql": get_column_name(column, is_main_view),
+            "sql": get_sql_expression(column, is_main_view),
             "description": measure.description
             or f"{measure.type.value} of {column.name}",
         }

@@ -10,7 +10,7 @@ from dbt2looker_bigquery.enums import (
     LookerTimeTimeframes,
 )
 from dbt2looker_bigquery.generators.utils import (
-    get_column_name,
+    get_sql_expression,
     map_bigquery_to_looker,
     MetaAttributeApplier,
 )
@@ -124,7 +124,7 @@ class LookmlDimensionGenerator:
         else:
             return None, None, None
 
-        sql = get_column_name(column, main_view)
+        sql = get_sql_expression(column, main_view)
 
         dimensions = []
         dimension_group = {
@@ -166,7 +166,7 @@ class LookmlDimensionGenerator:
         return dimension_group, dimension_group_set, dimensions
 
     def lookml_dimensions_from_model(
-        self, column_list: list[DbtModelColumn], is_main_view: bool
+        self, column_list: list[DbtModelColumn], is_main_view: bool, view: dict
     ) -> tuple:
         """Generate dimensions from model."""
         dimensions = []
@@ -189,7 +189,7 @@ class LookmlDimensionGenerator:
             if column.data_type is None:
                 continue
 
-            column_name = get_column_name(column, is_main_view)
+            column_name = get_sql_expression(column, is_main_view, view)
             dimension = self._create_dimension(column, column_name)
 
             if dimension is not None:

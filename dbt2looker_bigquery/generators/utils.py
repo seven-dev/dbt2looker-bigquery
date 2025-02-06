@@ -18,15 +18,25 @@ def map_bigquery_to_looker(column_type: str | None) -> Optional[str]:
         return None
 
 
-def get_column_name(column: DbtModelColumn, is_main_view: bool) -> str:
+def get_sql_expression(
+    column: DbtModelColumn, is_main_view: bool, view: dict = None
+) -> str:
     """Get name of column."""
     if not is_main_view and "." in column.name:
         return f"{column.lookml_name}"  # it will never return blank, validated in model
 
-    if "." in column.name:
-        # For nested fields in the main view, include the parent path
+    if "." in column.name or column.is_inner_array_representation:
         parent_path = ".".join(column.name.split(".")[:-1])
-        return f"${{{parent_path}}}.{column.lookml_name}"
+
+        if column.is_inner_array_representation:
+            # inner arrays is the parent path, unnested
+            if view is None:
+                raise ValueError(
+                    "Internal error: View is required for inner array representation"
+                )
+            return view.get("name")
+        else:
+            return f"${{{parent_path}}}.{column.lookml_name}"
 
     return f"${{TABLE}}.{column.name}"
 

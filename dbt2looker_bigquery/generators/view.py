@@ -33,7 +33,7 @@ class LookmlViewGenerator:
             is_main_view = False
 
         dimensions = dimension_generator.lookml_dimensions_from_model(
-            column_list, is_main_view
+            column_list, is_main_view, view
         )
 
         if (
