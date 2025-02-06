@@ -150,6 +150,7 @@ class StructureGenerator:
                     grouped_data[key] = []
                 column_copy = column.model_copy()
                 column_copy.is_inner_array_representation = True
+                logging.warning(f"{prepath}: {column.inner_types[0]}")
                 column_copy.data_type = column.inner_types[0]
                 grouped_data[key].append(column_copy)
 

@@ -106,6 +106,7 @@ class LookmlDimensionGenerator:
         column: DbtModelColumn,
         dimension_group_type: str,
         main_view: bool,
+        view: dict,
     ) -> tuple:
         """Create dimension group for date/time fields."""
         if map_bigquery_to_looker(column.data_type) is None:
@@ -124,7 +125,7 @@ class LookmlDimensionGenerator:
         else:
             return None, None, None
 
-        sql = get_sql_expression(column, main_view)
+        sql = get_sql_expression(column, main_view, view)
 
         dimensions = []
         dimension_group = {
@@ -166,7 +167,7 @@ class LookmlDimensionGenerator:
         return dimension_group, dimension_group_set, dimensions
 
     def lookml_dimensions_from_model(
-        self, column_list: list[DbtModelColumn], is_main_view: bool, view: dict
+        self, column_list: list[DbtModelColumn], is_main_view: bool, view: dict = None
     ) -> tuple:
         """Generate dimensions from model."""
         dimensions = []
@@ -180,17 +181,12 @@ class LookmlDimensionGenerator:
 
         # Then add regular dimensions
         for column in column_list:
-            if column.data_type == "DATETIME":
+            dimension_group_type = self._get_looker_dimension_group_type(column)
+            if dimension_group_type in ("time", "date"):
                 continue
 
-            if column.data_type == "DATE":
-                continue
-
-            if column.data_type is None:
-                continue
-
-            column_name = get_sql_expression(column, is_main_view, view)
-            dimension = self._create_dimension(column, column_name)
+            sql = get_sql_expression(column, is_main_view, view)
+            dimension = self._create_dimension(column, sql)
 
             if dimension is not None:
                 dimensions.append(dimension)
@@ -198,7 +194,7 @@ class LookmlDimensionGenerator:
         return dimensions
 
     def lookml_dimension_groups_from_model(
-        self, columns: list[DbtModelColumn], is_main_view: bool
+        self, columns: list[DbtModelColumn], is_main_view: bool, view: dict
     ) -> dict:
         """Generate dimension groups from model."""
         dimensions = []
@@ -213,6 +209,7 @@ class LookmlDimensionGenerator:
                         column=column,
                         dimension_group_type=dimension_group_type,
                         main_view=is_main_view,
+                        view=view,
                     )
                 )
                 if dimension_group:

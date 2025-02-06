@@ -11,16 +11,13 @@ def map_bigquery_to_looker(column_type: str | None) -> Optional[str]:
     if column_type:
         column_type = column_type.split("<")[0]  # STRUCT< or ARRAY<
         column_type = column_type.split("(")[0]  # Numeric(1,31)
-
     try:
         return LookerBigQueryDataType.get(column_type)
     except ValueError:
         return None
 
 
-def get_sql_expression(
-    column: DbtModelColumn, is_main_view: bool, view: dict = None
-) -> str:
+def get_sql_expression(column: DbtModelColumn, is_main_view: bool, view: dict) -> str:
     """Get name of column."""
     if not is_main_view and "." in column.name:
         return f"{column.lookml_name}"  # it will never return blank, validated in model
@@ -32,7 +29,7 @@ def get_sql_expression(
             # inner arrays is the parent path, unnested
             if view is None:
                 raise ValueError(
-                    "Internal error: View is required for inner array representation"
+                    f"Internal error: {column.name} View is required for inner array representation"
                 )
             return view.get("name")
         else:

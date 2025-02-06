@@ -94,7 +94,9 @@ def test_dimension_group_time(cli_args):
     )
 
     dimension_generator = LookmlDimensionGenerator(cli_args)
-    result = dimension_generator.lookml_dimension_group(column, "time", True)
+    result = dimension_generator.lookml_dimension_group(
+        column, "time", True, "test_view"
+    )
     assert isinstance(result[0], dict)
     assert result[0].get("type") == "time"
     assert result[0].get("timeframes") == LookerTimeTimeframes.values()
@@ -122,7 +124,7 @@ def test_dimension_group_date(cli_args):
     )
 
     dimension_group, dimension_set, _ = dimension_generator.lookml_dimension_group(
-        column, "date", True
+        column, "date", True, "test_view"
     )
     assert dimension_group["type"] == "time"  # date is not a thing in looker....
     assert dimension_group["convert_tz"] == "no"
