@@ -86,15 +86,15 @@ def test_dimension_group_time(cli_args):
 
     column = DbtModelColumn(
         name="created_at",
-        lookml_name="created_at",
-        lookml_long_name="created_at",
         data_type="TIMESTAMP",
         unique_id="test_model.created_at",
         meta=DbtModelColumnMeta(),
     )
 
     dimension_generator = LookmlDimensionGenerator(cli_args)
-    result = dimension_generator.lookml_dimension_group(column, "time", True)
+    result = dimension_generator.lookml_dimension_group(
+        column, "time", True, "test_view"
+    )
     assert isinstance(result[0], dict)
     assert result[0].get("type") == "time"
     assert result[0].get("timeframes") == LookerTimeTimeframes.values()
@@ -108,8 +108,6 @@ def test_dimension_group_date(cli_args):
     # Test with date column
     column = DbtModelColumn(
         name="created_date",
-        lookml_name="created_date",
-        lookml_long_name="created_date",
         data_type="DATE",
         unique_id="test_model.created_date",
         meta=DbtModelColumnMeta(
@@ -122,7 +120,7 @@ def test_dimension_group_date(cli_args):
     )
 
     dimension_group, dimension_set, _ = dimension_generator.lookml_dimension_group(
-        column, "date", True
+        column, "date", True, "test_view"
     )
     assert dimension_group["type"] == "time"  # date is not a thing in looker....
     assert dimension_group["convert_tz"] == "no"
@@ -149,8 +147,6 @@ def test_lookml_dimensions_with_metadata(cli_args):
         columns={
             "string_col": DbtModelColumn(
                 name="string_col",
-                lookml_name="string_col",
-                lookml_long_name="string_col",
                 data_type="STRING",
                 unique_id="test_model.string_col",
                 description="Custom Description",
@@ -196,8 +192,6 @@ def test_lookml_measures_from_model(cli_args):
         columns={
             "amount": DbtModelColumn(
                 name="amount",
-                lookml_name="amount",
-                lookml_long_name="amount",
                 data_type="FLOAT64",
                 unique_id="test_model.amount",
                 meta=DbtModelColumnMeta(
@@ -244,8 +238,6 @@ def test_lookml_measures_with_filters(cli_args):
         columns={
             "amount": DbtModelColumn(
                 name="amount",
-                lookml_name="amount",
-                lookml_long_name="amount",
                 data_type="FLOAT64",
                 unique_id="test_model.amount",
                 meta=DbtModelColumnMeta(
@@ -292,8 +284,6 @@ def test_legacy_lookml_dimension(cli_args):
         columns={
             "string_col": DbtModelColumn(
                 name="string_col",
-                lookml_name="string_col",
-                lookml_long_name="string_col",
                 data_type="STRING",
                 unique_id="test_model.string_col",
                 description="Custom Description",
@@ -337,8 +327,6 @@ def test_legacy_lookml_measure(cli_args):
         columns={
             "amount": DbtModelColumn(
                 name="amount",
-                lookml_name="amount",
-                lookml_long_name="amount",
                 data_type="FLOAT64",
                 unique_id="test_model.amount",
                 meta=DbtModelColumnMeta(
@@ -388,16 +376,12 @@ def test_view_definition(cli_args):
         columns={
             "string_col": DbtModelColumn(
                 name="string_col",
-                lookml_name="string_col",
-                lookml_long_name="string_col",
                 data_type="STRING",
                 unique_id="test_model.string_col",
                 description="Custom Description",
             ),
             "amount": DbtModelColumn(
                 name="amount",
-                lookml_name="amount",
-                lookml_long_name="amount",
                 data_type="FLOAT64",
                 unique_id="test_model.amount",
             ),

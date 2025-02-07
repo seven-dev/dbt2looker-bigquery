@@ -319,8 +319,6 @@ class TestDbtModels:
         """Test DbtModelColumn validation"""
         column = DbtModelColumn(
             name="test_col",
-            lookml_name="test_col",
-            lookml_long_name="test_col",
             description="Test column",
             data_type="STRING",
             meta=DbtModelColumnMeta(),

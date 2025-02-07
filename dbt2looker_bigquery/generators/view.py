@@ -18,7 +18,7 @@ class LookmlViewGenerator:
 
     def _build_view(
         self,
-        view,
+        view: dict,
         model: DbtModel,
         depth: int,
         column_list: list,
@@ -33,13 +33,13 @@ class LookmlViewGenerator:
             is_main_view = False
 
         dimensions = dimension_generator.lookml_dimensions_from_model(
-            column_list, is_main_view
+            column_list, is_main_view, view
         )
 
         if (
             dimensions_groups_dimensions
             := dimension_generator.lookml_dimension_groups_from_model(
-                column_list, is_main_view
+                column_list, is_main_view, view
             ).get("dimensions")
         ):
             dimensions.append(dimensions_groups_dimensions)
@@ -48,19 +48,21 @@ class LookmlViewGenerator:
             view["dimensions"] = dimensions
 
         if dimension_groups := dimension_generator.lookml_dimension_groups_from_model(
-            column_list, is_main_view
+            column_list, is_main_view, view
         ).get("dimension_groups"):
             view["dimension_groups"] = dimension_groups
 
         if measures := measure_generator.lookml_measures_from_model(
-            column_list, is_main_view
+            column_list, is_main_view, view
         ):
             view["measures"] = measures
 
         if sets := dimension_generator.lookml_dimension_groups_from_model(
-            column_list, is_main_view
+            column_list, is_main_view, view
         ).get("dimension_group_sets"):
             view["sets"] = sets
+
+        view.pop("array_name", None)
 
         return view
 
@@ -87,6 +89,7 @@ class LookmlViewGenerator:
                 iteration_view["name"] = self._dot.remove_dots(
                     f"{iteration_view['name']}.{prepath}"
                 )
+                iteration_view["array_name"] = prepath
 
                 prepath_label = prepath.replace("__", " : ").replace("_", " ").title()
 

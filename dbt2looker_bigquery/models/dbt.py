@@ -187,8 +187,6 @@ class DbtModelColumn(BaseModel):
     """A column in a dbt model"""
 
     name: str
-    lookml_long_name: Optional[str] = ""
-    lookml_name: Optional[str] = ""
     description: Optional[str] = None
     data_type: Optional[str] = None
     inner_types: list[str] = []
@@ -207,8 +205,6 @@ class DbtModelColumn(BaseModel):
         if "." in name:
             values["nested"] = True
         values["name"] = name.lower()
-        values["lookml_long_name"] = name.replace(".", "__").lower()
-        values["lookml_name"] = name.split(".")[-1].lower()
         values["description"] = values.get(
             "description", "This field is missing a description."
         )

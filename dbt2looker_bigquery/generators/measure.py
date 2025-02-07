@@ -1,5 +1,8 @@
 from dbt2looker_bigquery.enums import LookerMeasureType, LookerScalarTypes
-from dbt2looker_bigquery.generators.utils import get_column_name, map_bigquery_to_looker
+from dbt2looker_bigquery.generators.utils import (
+    get_sql_expression,
+    map_bigquery_to_looker,
+)
 from dbt2looker_bigquery.models.dbt import DbtModelColumn
 from dbt2looker_bigquery.models.looker import DbtMetaLookerMeasure
 from dbt2looker_bigquery.generators.utils import MetaAttributeApplier
@@ -49,6 +52,7 @@ class LookmlMeasureGenerator:
         column: DbtModelColumn,
         measure: DbtMetaLookerMeasure,
         is_main_view: bool,
+        view,
     ) -> dict:
         """Create a LookML measure from a DBT model column and measure."""
         if measure.type.value not in [t.value for t in LookerMeasureType]:
@@ -57,7 +61,7 @@ class LookmlMeasureGenerator:
         m = {
             "name": f"m_{measure.type.value}_{column.name}",
             "type": measure.type.value,
-            "sql": get_column_name(column, is_main_view),
+            "sql": get_sql_expression(column, is_main_view, view),
             "description": measure.description
             or f"{measure.type.value} of {column.name}",
         }
@@ -96,7 +100,7 @@ class LookmlMeasureGenerator:
         return m
 
     def lookml_measures_from_model(
-        self, column_list: list[DbtModelColumn], is_main_view: bool
+        self, column_list: list[DbtModelColumn], is_main_view: bool, view: dict = None
     ) -> list:
         """Generate measures from model."""
         lookml_measures = []
@@ -109,7 +113,7 @@ class LookmlMeasureGenerator:
                 and column.meta.looker.measures
             ):
                 lookml_measures.extend(
-                    self._lookml_measure(column, measure, is_main_view)
+                    self._lookml_measure(column, measure, is_main_view, view)
                     for measure in column.meta.looker.measures
                 )
 

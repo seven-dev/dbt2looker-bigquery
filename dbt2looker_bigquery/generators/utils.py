@@ -11,24 +11,32 @@ def map_bigquery_to_looker(column_type: str | None) -> Optional[str]:
     if column_type:
         column_type = column_type.split("<")[0]  # STRUCT< or ARRAY<
         column_type = column_type.split("(")[0]  # Numeric(1,31)
-
     try:
         return LookerBigQueryDataType.get(column_type)
     except ValueError:
         return None
 
 
-def get_column_name(column: DbtModelColumn, is_main_view: bool) -> str:
+def get_sql_expression(column: DbtModelColumn, is_main_view: bool, view: dict) -> str:
     """Get name of column."""
-    if not is_main_view and "." in column.name:
-        return f"{column.lookml_name}"  # it will never return blank, validated in model
+    if column.is_inner_array_representation:
+        return view.get("name")
+
+    column_name = column.name
 
     if "." in column.name:
-        # For nested fields in the main view, include the parent path
-        parent_path = ".".join(column.name.split(".")[:-1])
-        return f"${{{parent_path}}}.{column.lookml_name}"
+        if column.name.startswith(view.get("array_name", "")) and view.get(
+            "array_name"
+        ):
+            # records in non array structs can be referenced directly
+            column_name = column.name[len(view.get("array_name")) + 1 :]
 
-    return f"${{TABLE}}.{column.name}"
+    if not is_main_view and "." not in column_name:
+        # dimensions in structs can be referenced without the table name
+        return column_name
+
+    # default sql formatting
+    return f"${{TABLE}}.{column_name}"
 
 
 class MetaAttributeApplier:
