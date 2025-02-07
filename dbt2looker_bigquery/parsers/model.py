@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Optional
 
 from dbt2looker_bigquery.models.dbt import DbtManifest, DbtModel
+from dbt2looker_bigquery.utils import strip_model_name
 
 
 class ModelParser:
@@ -32,17 +33,6 @@ class ModelParser:
 
         return all_models
 
-    def _strip_model_name(self, model_name: str) -> str:
-        """Clean model names from dbt paths."""
-        # remove before / eg model/name = name
-        if "/" in model_name:
-            model_name = model_name.split("/")[-1]
-        # remove after . eg model_name.sql = model_name
-        if "." in model_name:
-            model_name = model_name.split(".")[0]
-
-        return model_name
-
     def filter_models(
         self,
         models_list: List[DbtModel],
@@ -55,7 +45,7 @@ class ModelParser:
 
         if select_model:
             selection_criteria = [
-                self._strip_model_name(selector) for selector in select_model
+                strip_model_name(selector) for selector in select_model
             ]
             filtered_models = [
                 model for model in filtered if model.name in selection_criteria

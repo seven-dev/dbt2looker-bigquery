@@ -86,26 +86,23 @@ class DbtExposure(DbtNode):
     depends_on: DbtDependsOn = DbtDependsOn()
 
 
-class DbtCatalogNodeMetadata(BaseModel):
-    """Metadata about a dbt catalog node"""
+# class DbtCatalogNodeMetadata(BaseModel):
+#     """Metadata about a dbt catalog node"""
 
-    type: str
-    db_schema: str = Field(..., alias="schema")
-    name: str
-    comment: Optional[str] = None
-    owner: Optional[str] = None
+#     type: str
+#     db_schema: str = Field(..., alias="schema")
+#     name: str
+#     comment: Optional[str] = None
+#     owner: Optional[str] = None
 
 
 class DbtCatalogNodeColumn(BaseModel):
     """A column in a dbt catalog node"""
 
+    name: str
     type: str
     data_type: Optional[str] = "MISSING"
     inner_types: Optional[List[str]] = []
-    comment: Optional[str] = None
-    index: int
-    name: str
-    parent: Optional["DbtCatalogNodeColumn"] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -113,10 +110,7 @@ class DbtCatalogNodeColumn(BaseModel):
         column_type = values.get("type")
 
         def truncate_before_character(string, character):
-            # Find the position of the character in the string.
             pos = string.find(character)
-
-            # If found, return everything up to that point.
             return string[:pos] if pos != -1 else string
 
         data_type = truncate_before_character(column_type, "<")
@@ -129,18 +123,9 @@ class DbtCatalogNodeColumn(BaseModel):
         return values
 
 
-class DbtCatalogNodeRelationship(BaseModel):
-    """A model for nodes containing relationships"""
-
-    type: str
-    columns: List[DbtCatalogNodeColumn]
-    relationships: List[str]  # List of relationships, adjust the type accordingly
-
-
 class DbtCatalogNode(BaseModel):
     """A dbt catalog node"""
 
-    metadata: DbtCatalogNodeMetadata
     columns: Dict[str, DbtCatalogNodeColumn]
 
     @field_validator("columns")
@@ -235,6 +220,7 @@ class DbtModel(DbtNode):
     Contains information about the model's structure, columns, and metadata.
     """
 
+    database: str
     resource_type: Literal["model"]
     relation_name: str
     db_schema: str = Field(..., alias="schema")

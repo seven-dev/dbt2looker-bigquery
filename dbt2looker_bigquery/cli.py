@@ -155,6 +155,12 @@ class Cli:
             action="store_true",
             default=False,
         )
+        parser.add_argument(
+            "--typing-source",
+            "-ts",
+            help="Experimental: Define the catalog parser to use. Default is 'CATALOG', options ['DB', 'CATALOG']",
+            default="CATALOG",
+        )
         parser.set_defaults(
             build_explore=True, write_output=True, hide_arrays_and_structs=True
         )

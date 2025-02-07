@@ -4,8 +4,11 @@ from typing import Dict, List
 import logging
 from dbt2looker_bigquery.models.dbt import DbtCatalog, DbtManifest, DbtModel
 from dbt2looker_bigquery.parsers.catalog import CatalogParser
+from dbt2looker_bigquery.parsers.database_catalog import DatabaseCatalog
+
 from dbt2looker_bigquery.parsers.exposure import ExposureParser
 from dbt2looker_bigquery.parsers.model import ModelParser
+from dbt2looker_bigquery.utils import strip_model_name
 
 
 class DbtParser:
@@ -13,8 +16,6 @@ class DbtParser:
 
     def __init__(self, raw_manifest: Dict, raw_catalog: Dict, args: Dict = None):
         """Initialize the parser with raw manifest and catalog data."""
-        # self._raw_manifest = raw_manifest
-        self._catalog = DbtCatalog(**raw_catalog)
 
         if hasattr(args, "select") and hasattr(args, "prefilter") and args.prefilter:
             filtered_raw_manifest = self.filter_before_pydantic(
@@ -25,7 +26,14 @@ class DbtParser:
             self._manifest = DbtManifest(**raw_manifest)
 
         self._model_parser = ModelParser(self._manifest)
-        self._catalog_parser = CatalogParser(self._catalog)
+
+        if hasattr(args, "typing_source") and args.typing_source == "DATABASE":
+            self._catalog = None
+            self._catalog_parser = DatabaseCatalog()
+        else:
+            self._catalog = DbtCatalog(**raw_catalog)
+            self._catalog_parser = CatalogParser(self._catalog)
+
         self._exposure_parser = ExposureParser(self._manifest)
 
     def filter_before_pydantic(
@@ -38,7 +46,8 @@ class DbtParser:
         filtered_nodes = {
             model_name: model
             for model_name, model in manifest.get("nodes", {}).items()
-            if model_name.split(".")[-1] in select_model
+            if model_name.split(".")[-1]
+            in [strip_model_name(model) for model in select_model]
         }
 
         manifest["nodes"] = filtered_nodes

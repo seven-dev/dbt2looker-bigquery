@@ -5,6 +5,18 @@ from dbt2looker_bigquery.exceptions import CliError
 from dbt2looker_bigquery.models.dbt import DbtModel
 
 
+def strip_model_name(model_name: str) -> str:
+    """Clean model names from dbt paths."""
+    # remove before / eg model/name = name
+    if "/" in model_name:
+        model_name = model_name.split("/")[-1]
+    # remove after . eg model_name.sql = model_name
+    if "." in model_name:
+        model_name = model_name.split(".")[0]
+
+    return model_name
+
+
 class FileHandler:
     def read(self, file_path: str, is_json=True) -> dict:
         """Load file from disk. Default is to load as a JSON file
