@@ -158,7 +158,7 @@ class Cli:
         parser.add_argument(
             "--typing-source",
             "-ts",
-            help="Experimental: Define the catalog parser to use. Default is 'CATALOG', options ['DB', 'CATALOG']",
+            help="Experimental: Define the catalog parser to use. Default is 'CATALOG', options ['DATABASE', 'CATALOG']",
             default="CATALOG",
         )
         parser.set_defaults(
