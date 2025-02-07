@@ -24,6 +24,10 @@ class BigQueryDatabase:
         table_info = response.json()
 
         schema = BigQueryTableSchema(fields=table_info["schema"]["fields"])
+
+        from rich import print
+
+        print(schema)
         return schema
 
     def _translate_schema_to_dbt_model(self, schema: BigQueryTableSchema) -> dict:
@@ -39,7 +43,10 @@ class BigQueryDatabase:
                 else:
                     type = f"STRUCT<{', '.join(inner_types)}>"
             else:
-                type = field.type
+                if field.mode == "REPEATED":
+                    type = f"ARRAY<{field.type}>"
+                else:
+                    type = field.type
 
             if include_name:
                 type = f"{field.name} {type}"
@@ -81,7 +88,4 @@ class BigQueryDatabase:
         schema = self._fetch_table_schema(model.database, model.db_schema, table_id)
         catalog_schema = self._translate_schema_to_dbt_model(schema)
 
-        from rich import print
-
-        print(catalog_schema)
         return catalog_schema

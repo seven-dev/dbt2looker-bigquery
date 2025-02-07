@@ -26,7 +26,6 @@ class CatalogParser:
             ):
                 processed_columns[column_name] = processed_column
 
-        # Create missing array columns
         if model.unique_id in self._catalog.nodes:
             catalog_node = self._catalog.nodes[model.unique_id]
             for column_name, column in catalog_node.columns.items():

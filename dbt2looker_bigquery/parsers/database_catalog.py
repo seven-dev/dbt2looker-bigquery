@@ -28,7 +28,6 @@ class DatabaseCatalog:
             ):
                 processed_columns[column_name] = processed_column
 
-        # Create missing array columns
         if model.unique_id in self._model:
             for column_name, column in self._model.columns.items():
                 if (
