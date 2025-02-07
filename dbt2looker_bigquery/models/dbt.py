@@ -86,16 +86,6 @@ class DbtExposure(DbtNode):
     depends_on: DbtDependsOn = DbtDependsOn()
 
 
-# class DbtCatalogNodeMetadata(BaseModel):
-#     """Metadata about a dbt catalog node"""
-
-#     type: str
-#     db_schema: str = Field(..., alias="schema")
-#     name: str
-#     comment: Optional[str] = None
-#     owner: Optional[str] = None
-
-
 class DbtCatalogNodeColumn(BaseModel):
     """A column in a dbt catalog node"""
 
@@ -219,7 +209,7 @@ class DbtModel(DbtNode):
     Contains information about the model's structure, columns, and metadata.
     """
 
-    database: str
+    database: Optional[str] = None
     resource_type: Literal["model"]
     relation_name: str
     db_schema: str = Field(..., alias="schema")

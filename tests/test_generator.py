@@ -74,7 +74,6 @@ def test_validate_sql(sql, expected):
         ("ARRAY<STRING>", "string"),
         ("STRUCT<name STRING>", "string"),
         ("INVALID_TYPE", None),
-        {"INTEGER", "number"},
     ],
 )
 def test_map_bigquery_to_looker(bigquery_type, expected_looker_type):
