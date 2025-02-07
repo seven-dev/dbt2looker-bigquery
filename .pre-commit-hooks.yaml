@@ -1,4 +1,4 @@
-- id: strict-verify
+- id: verify
   name: verify
   entry: dbt2looker --prefilter --strict --dry-run -ts DATABASE -s
   description: "verify that dbt models are compatible with Looker"
