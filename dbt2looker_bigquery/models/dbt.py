@@ -100,7 +100,6 @@ class DbtCatalogNodeColumn(BaseModel):
     """A column in a dbt catalog node"""
 
     name: str
-    type: str
     data_type: Optional[str] = "MISSING"
     inner_types: Optional[List[str]] = []
 
