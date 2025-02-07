@@ -1,9 +1,28 @@
 import google.auth
 from google.auth.transport.requests import Request
 import requests
-from dbt2looker_bigquery.database.models.bigqueryTable import BigQueryTableSchema
+from dbt2looker_bigquery.database.models.bigqueryTable import (
+    BigQueryTableSchema,
+    BigQueryFieldSchema,
+)
 
 from dbt2looker_bigquery.models.dbt import DbtCatalogNode
+
+from enum import Enum
+
+
+class Url(Enum):
+    BIGQUERY = "https://bigquery.googleapis.com/bigquery/v2/projects/{project_id}/datasets/{dataset_id}/tables/{table_id}"
+
+
+class Mode(Enum):
+    REPEATED = "REPEATED"
+
+
+class Type(Enum):
+    RECORD = "RECORD"
+    ARRAY = "ARRAY"
+    STRUCT = "STRUCT"
 
 
 class BigQueryDatabase:
@@ -15,7 +34,9 @@ class BigQueryDatabase:
 
         credentials.refresh(Request())
 
-        url = f"https://bigquery.googleapis.com/bigquery/v2/projects/{project_id}/datasets/{dataset_id}/tables/{table_id}"
+        url = Url.BIGQUERY.value.format(
+            project_id=project_id, dataset_id=dataset_id, table_id=table_id
+        )
 
         headers = {"Authorization": f"Bearer {credentials.token}"}
         response = requests.get(url, headers=headers, timeout=10)
@@ -25,52 +46,56 @@ class BigQueryDatabase:
 
         schema = BigQueryTableSchema(fields=table_info["schema"]["fields"])
 
-        from rich import print
-
-        print(schema)
         return schema
 
-    def _translate_schema_to_dbt_model(self, schema: BigQueryTableSchema) -> dict:
+    def _recurse_types(self, field: BigQueryFieldSchema, include_name=False) -> str:
+        """Recursively parse the type of a field, by including nested fields in type."""
+        if field.type == Type.RECORD.value:
+            inner_types = []
+            for sub_field in field.fields:
+                inner_types.append(self._recurse_types(sub_field, include_name=True))
+            if field.mode == Mode.REPEATED.value:
+                type = (
+                    f"{Type.ARRAY.value}<{Type.STRUCT.value}<{', '.join(inner_types)}>>"
+                )
+            else:
+                type = f"{Type.STRUCT.value}<{', '.join(inner_types)}>"
+        else:
+            if field.mode == Mode.REPEATED.value:
+                type = f"{Type.ARRAY.value}<{field.type}>"
+            else:
+                type = field.type
+
+        if include_name:
+            type = f"{field.name} {type}"
+        return type
+
+    def _recursively_flatten_fields(self, fields: list[BigQueryFieldSchema], prefix=""):
+        """Recursively flatten the fields of a schema, moving nested fields to the top level."""
+        flat_fields = []
+        for field in fields:
+            field.name = prefix + field.name
+            if field.fields:
+                flat_fields.extend(
+                    self._recursively_flatten_fields(field.fields, field.name + ".")
+                )
+            flat_fields.append(field)
+        return flat_fields
+
+    def _recurse_type_fields(self, fields):
+        """Recursively adjust the type of fields and nested fields to match dbt catalog format."""
+        for field in fields:
+            field.type = self._recurse_types(field)
+            if field.fields:
+                self._recurse_type_fields(field.fields)
+
+    def _translate_schema_to_dbt_model(
+        self, schema: BigQueryTableSchema
+    ) -> DbtCatalogNode:
         """Translate a BigQueryTableSchema to a dbt model schema."""
 
-        def recurse_types(field, include_name=False):
-            if field.type == "RECORD":
-                inner_types = []
-                for sub_field in field.fields:
-                    inner_types.append(recurse_types(sub_field, include_name=True))
-                if field.mode == "REPEATED":
-                    type = f"ARRAY<STRUCT<{', '.join(inner_types)}>>"
-                else:
-                    type = f"STRUCT<{', '.join(inner_types)}>"
-            else:
-                if field.mode == "REPEATED":
-                    type = f"ARRAY<{field.type}>"
-                else:
-                    type = field.type
-
-            if include_name:
-                type = f"{field.name} {type}"
-            return type
-
-        def recursively_flatten_fields(fields, prefix=""):
-            flat_fields = []
-            for field in fields:
-                field.name = prefix + field.name
-                if field.fields:
-                    flat_fields.extend(
-                        recursively_flatten_fields(field.fields, field.name + ".")
-                    )
-                flat_fields.append(field)
-            return flat_fields
-
-        def recurse_type_fields(fields):
-            for field in fields:
-                field.type = recurse_types(field)
-                if field.fields:
-                    recurse_type_fields(field.fields)
-
-        recurse_type_fields(schema.fields)
-        schema.fields = recursively_flatten_fields(schema.fields)
+        self._recurse_type_fields(schema.fields)
+        schema.fields = self._recursively_flatten_fields(schema.fields)
 
         dict_schema = schema.model_dump()
         catalog_nodes = {}
