@@ -58,10 +58,6 @@ class CatalogParser:
         else:
             self._get_catalog_node(model.unique_id)
 
-        import rich
-
-        rich.print(self.node)
-
     def _get_typing_information(
         self, column_name: str
     ) -> Tuple[Optional[str], List[str]]:
