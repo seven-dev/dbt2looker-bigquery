@@ -31,15 +31,6 @@ class SupportedDbtAdapters(str, ExtendedEnum):
     BIGQUERY = "bigquery"
 
 
-class BigQueryUniformType(str, ExtendedEnum):
-    INT64 = "INT64"
-    INTEGER = "INT64"
-    FLOAT = "FLOAT64"
-    FLOAT64 = "FLOAT64"
-    BOOLEAN = "BOOLEAN"
-    BOOL = "BOOLEAN"
-
-
 class LookerMeasureType(str, ExtendedEnum):
     NUMBER = "number"
     STRING = "string"

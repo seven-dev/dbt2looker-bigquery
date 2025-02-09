@@ -33,6 +33,22 @@ class TestCatalogParser:
                             "name": "id",
                             "type": "INT64",
                         },
+                        "alt_int": {
+                            "name": "alt_int",
+                            "type": "INTEGER",
+                        },
+                        "float_col": {
+                            "name": "float_col",
+                            "type": "FLOAT",
+                        },
+                        "alt_float": {
+                            "name": "alt_float",
+                            "type": "FLOAT64",
+                        },
+                        "numeric_col": {
+                            "name": "numeric_col",
+                            "type": "NUMERIC(10, 2)",
+                        },
                         "struct_col": {
                             "name": "struct_col",
                             "type": "STRUCT<id INT64, name STRING>",
@@ -74,9 +90,24 @@ class TestCatalogParser:
         assert data_type == "ARRAY"
         assert inner_types == ["STRING"]
 
-        parser._get_catalog_node("non.existent.model")
+        data_type, inner_types = parser._get_typing_information("numeric_col")
+        assert data_type == "NUMERIC"
+        assert inner_types == ["NUMERIC"]
+
+        data_type, inner_types = parser._get_typing_information("float_col")
+        assert data_type == "FLOAT64"
+        assert inner_types == ["FLOAT64"]
+
+        data_type, inner_types = parser._get_typing_information("alt_int")
+        assert data_type == "INT64"
+        assert inner_types == ["INT64"]
+
+        data_type, inner_types = parser._get_typing_information("alt_float")
+        assert data_type == "FLOAT64"
+        assert inner_types == ["FLOAT64"]
+
         # Test non-existent model/column
-        data_type, inner_types = parser._get_typing_information("id")
+        data_type, inner_types = parser._get_typing_information("non_existent")
         assert data_type is None
         assert inner_types == []
 

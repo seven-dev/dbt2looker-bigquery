@@ -63,6 +63,18 @@ class TestIntegration:
         )
         self._test(
             content,
+            "type:",
+            "count",
+            26,
+        )
+        self._test(
+            content,
+            "type: left_outer",
+            "count",
+            3,
+        )
+        self._test(
+            content,
             "explore: example_retail_data__fact_daily_sales {",
             "include",
         )
@@ -127,6 +139,12 @@ class TestIntegration:
             cli,
             args,
             file_path,
+        )
+        self._test(
+            content,
+            "type:",
+            "count",
+            23,
         )
         self._test(
             content,

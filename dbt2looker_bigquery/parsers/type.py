@@ -12,18 +12,6 @@ from typing import List
 from dbt2looker_bigquery.enums import BigqueryType
 
 
-def map_type(type_str: str) -> str:
-    """Maps BigQuery type variations to uniform Bigquery types."""
-    from dbt2looker_bigquery.enums import BigQueryUniformType
-
-    type_str = type_str.upper()
-
-    if type_str in BigQueryUniformType._value2member_map_:
-        return BigQueryUniformType[type_str].value
-
-    return type_str
-
-
 @dataclass
 class SchemaField:
     """Represents a field in the BigQuery schema with its name, type, and path."""
@@ -40,6 +28,20 @@ class SchemaField:
 
 class TypeParser:
     """Parser for dbt BigQuery schema strings that handles nested structures and complex types."""
+
+    def _map_type(self, type_str: str) -> str:
+        """Maps BigQuery type variations to uniform Bigquery types."""
+
+        type_str = type_str.upper()
+
+        if type_str == "INTEGER":
+            return "INT64"
+        elif type_str == "FLOAT":
+            return "FLOAT64"
+        elif type_str == "BOOL":
+            return "BOOLEAN"
+        else:
+            return type_str
 
     def __init__(self):
         self._fields: List[SchemaField] = []
@@ -115,7 +117,7 @@ class TypeParser:
         self._fields.append(
             SchemaField(
                 name=name,
-                type_str=map_type(type_str),
+                type_str=self._map_type(type_str),
                 path=self._current_path.copy(),
             )
         )
@@ -138,9 +140,9 @@ class TypeParser:
         schema_str = self._normalize_numerics(schema_str)
 
         if "<" not in schema_str:
-            return map_type(schema_str.strip())
+            return self._map_type(schema_str.strip())
         else:
-            return map_type(schema_str.split("<")[0].strip())
+            return self._map_type(schema_str.split("<")[0].strip())
 
     def get_inner_types(self, schema_str: str) -> List[str]:
         """Returns the outer data type and a list of inner types for a schema string."""
