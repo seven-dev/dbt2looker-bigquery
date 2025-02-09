@@ -12,6 +12,18 @@ from typing import List
 from dbt2looker_bigquery.enums import BigqueryType
 
 
+def map_type(type_str: str) -> str:
+    """Maps BigQuery type variations to uniform Bigquery types."""
+    from dbt2looker_bigquery.enums import BigQueryUniformType
+
+    type_str = type_str.upper()
+
+    if type_str in BigQueryUniformType._value2member_map_:
+        return BigQueryUniformType[type_str].value
+
+    return type_str
+
+
 @dataclass
 class SchemaField:
     """Represents a field in the BigQuery schema with its name, type, and path."""
@@ -61,8 +73,8 @@ class TypeParser:
 
         return [f for f in result if f]
 
-    def _normalize_types(self, type_str: str) -> str:
-        """Normalizes type strings by normalizing types."""
+    def _normalize_numerics(self, type_str: str) -> str:
+        """Remove (1,2) formatting from NUMERICS."""
         if "NUMERIC" in type_str:
             return re.sub(r"NUMERIC\(\d+,\s*\d+\)", "NUMERIC", type_str)
         return type_str
@@ -100,19 +112,17 @@ class TypeParser:
 
     def _add_field(self, name: str, type_str: str):
         """Adds a field to the result list."""
-        type_str = self._normalize_types(type_str)
         self._fields.append(
             SchemaField(
                 name=name,
-                type_str=type_str,
+                type_str=map_type(type_str),
                 path=self._current_path.copy(),
             )
         )
 
     def _process_fields(self, content: str):
         """Iteratively processes field definitions."""
-        normalized_content = self._normalize_types(content)
-        for field in self._split_fields(normalized_content):
+        for field in self._split_fields(content):
             name, type_str = field.split(" ", 1)
             inner_type_str, has_struct = self._process_type(type_str.strip())
 
@@ -125,15 +135,19 @@ class TypeParser:
 
     def get_data_type(self, schema_str: str) -> str:
         """Returns the outer data type for a schema string."""
+        schema_str = self._normalize_numerics(schema_str)
+
         if "<" not in schema_str:
-            return self._normalize_types(schema_str.strip())
+            return map_type(schema_str.strip())
         else:
-            return self._normalize_types(schema_str.split("<")[0].strip())
+            return map_type(schema_str.split("<")[0].strip())
 
     def get_inner_types(self, schema_str: str) -> List[str]:
         """Returns the outer data type and a list of inner types for a schema string."""
         self._fields = []
         self._current_path = []
+
+        schema_str = self._normalize_numerics(schema_str)
 
         inner_type_str, is_struct = self._process_type(schema_str)
 
