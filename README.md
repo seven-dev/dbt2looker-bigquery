@@ -130,7 +130,7 @@ generate: generate a lookml view file for the modified models.
 The hooks verify schemas by checking the tables exists in Bigquery, so you do not need to generate the catalog.
 
 ```
-  - repo: https://github.com/z3z1ma/dbt-osmosis
+  - repo: https://github.com/rognerud/dbt2looker-bigquery
     rev: v0.22.0
     hooks:
       - id: verify
