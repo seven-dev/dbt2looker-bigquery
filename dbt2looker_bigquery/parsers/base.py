@@ -6,19 +6,54 @@ from dbt2looker_bigquery.models.dbt import DbtCatalog, DbtManifest, DbtModel
 from dbt2looker_bigquery.parsers.catalog import CatalogParser
 from dbt2looker_bigquery.parsers.exposure import ExposureParser
 from dbt2looker_bigquery.parsers.model import ModelParser
+from dbt2looker_bigquery.utils import strip_model_name
+
+import warnings
+from dbt2looker_bigquery.warnings import CatalogWarning
 
 
 class DbtParser:
     """Main DBT parser that coordinates parsing of manifest and catalog files."""
 
-    def __init__(self, raw_manifest: Dict, raw_catalog: Dict):
+    def __init__(self, raw_manifest: Dict, raw_catalog: Dict, args: Dict = None):
         """Initialize the parser with raw manifest and catalog data."""
-        # self._raw_manifest = raw_manifest
-        self._catalog = DbtCatalog(**raw_catalog)
-        self._manifest = DbtManifest(**raw_manifest)
+
+        if hasattr(args, "select") and hasattr(args, "prefilter") and args.prefilter:
+            filtered_raw_manifest = self.filter_before_pydantic(
+                raw_manifest, args.select
+            )
+            self._manifest = DbtManifest(**filtered_raw_manifest)
+        else:
+            self._manifest = DbtManifest(**raw_manifest)
+
         self._model_parser = ModelParser(self._manifest)
-        self._catalog_parser = CatalogParser(self._catalog)
+
+        if hasattr(args, "typing_source") and args.typing_source == "DATABASE":
+            self._catalog = None
+            self._catalog_parser = CatalogParser(use_database=True)
+        else:
+            self._catalog = DbtCatalog(**raw_catalog)
+            self._catalog_parser = CatalogParser(catalog=self._catalog)
+
         self._exposure_parser = ExposureParser(self._manifest)
+
+    def filter_before_pydantic(
+        self, raw_manifest: Dict, select_model: List[str]
+    ) -> List[DbtModel]:
+        """Filter models based on multiple criteria."""
+
+        manifest = raw_manifest
+
+        filtered_nodes = {
+            model_name: model
+            for model_name, model in manifest.get("nodes", {}).items()
+            if model_name.split(".")[-1]
+            in [strip_model_name(model) for model in select_model]
+        }
+
+        manifest["nodes"] = filtered_nodes
+        logging.info(f"Prefiltered manifest to {len(filtered_nodes)} models")
+        return manifest
 
     def get_models(self, args) -> List[DbtModel]:
         """Parse dbt models from manifest and filter by criteria."""
@@ -34,7 +69,7 @@ class DbtParser:
                 args.exposures_tag if hasattr(args, "exposures_tag") else None
             )
         if exposed_names:
-            logging.debug(f"Exposures found: {len(exposed_names)}")
+            logging.debug(f"Found {len(exposed_names)} exposed models")
 
         # Filter models based on criteria
         filtered_models = self._model_parser.filter_models(
@@ -52,9 +87,10 @@ class DbtParser:
                 processed_models.append(processed_model)
             else:
                 nodes_without_catalogue.append(model.unique_id)
-        logging.debug(f"Models after catalog {len(processed_models)}")
+        logging.debug(f"Found {len(processed_models)} models that were materialized")
         if nodes_without_catalogue:
-            logging.debug(
-                f"Models without catalog information: {len(nodes_without_catalogue)}"
+            warnings.warn(
+                f"Not all models were materialized {nodes_without_catalogue}",
+                CatalogWarning,
             )
         return processed_models

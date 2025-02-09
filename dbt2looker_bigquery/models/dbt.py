@@ -1,12 +1,11 @@
 import logging
 from typing import Dict, List, Optional, Union
 import warnings
-from dbt2looker_bigquery.warnings import DeprecationWarning
+from dbt2looker_bigquery.warnings import DeprecationWarning, ParsingWarning
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from dbt2looker_bigquery import enums
-from dbt2looker_bigquery.schema import SchemaParser
 
 try:
     from typing import Literal
@@ -15,8 +14,6 @@ except ImportError:
 
 from dbt2looker_bigquery.exceptions import UnsupportedDbtAdapterError
 from dbt2looker_bigquery.models.looker import DbtMetaLooker, DbtMetaColumnLooker
-
-schema_parser = SchemaParser()
 
 
 def yes_no_validator(value: Union[bool, str]):
@@ -28,7 +25,10 @@ def yes_no_validator(value: Union[bool, str]):
     elif value.lower() in ["true", "false"]:
         return "yes" if value.lower() == "true" else "no"
     else:
-        logging.warning(f'Value must be "yes", "no", or a boolean. Got {value}')
+        warnings.warn(
+            f"lookml yesno, parsing error: Value must be yes, no, or a boolean. Got {value}",
+            ParsingWarning,
+        )
         return None
 
 
@@ -86,61 +86,16 @@ class DbtExposure(DbtNode):
     depends_on: DbtDependsOn = DbtDependsOn()
 
 
-class DbtCatalogNodeMetadata(BaseModel):
-    """Metadata about a dbt catalog node"""
-
-    type: str
-    db_schema: str = Field(..., alias="schema")
-    name: str
-    comment: Optional[str] = None
-    owner: Optional[str] = None
-
-
 class DbtCatalogNodeColumn(BaseModel):
     """A column in a dbt catalog node"""
 
-    type: str
-    data_type: Optional[str] = "MISSING"
-    inner_types: Optional[List[str]] = []
-    comment: Optional[str] = None
-    index: int
     name: str
-    parent: Optional["DbtCatalogNodeColumn"] = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_inner_type(cls, values):
-        column_type = values.get("type")
-
-        def truncate_before_character(string, character):
-            # Find the position of the character in the string.
-            pos = string.find(character)
-
-            # If found, return everything up to that point.
-            return string[:pos] if pos != -1 else string
-
-        data_type = truncate_before_character(column_type, "<")
-        values["data_type"] = truncate_before_character(data_type, "(")
-
-        inner_types = schema_parser.parse(column_type)
-        if inner_types and inner_types != column_type:
-            values["inner_types"] = inner_types
-
-        return values
-
-
-class DbtCatalogNodeRelationship(BaseModel):
-    """A model for nodes containing relationships"""
-
     type: str
-    columns: List[DbtCatalogNodeColumn]
-    relationships: List[str]  # List of relationships, adjust the type accordingly
 
 
 class DbtCatalogNode(BaseModel):
     """A dbt catalog node"""
 
-    metadata: DbtCatalogNodeMetadata
     columns: Dict[str, DbtCatalogNodeColumn]
 
     @field_validator("columns")
@@ -188,8 +143,8 @@ class DbtModelColumn(BaseModel):
 
     name: str
     description: Optional[str] = None
-    data_type: Optional[str] = None
-    inner_types: list[str] = []
+    data_type: Optional[str] = None  # added later from catalog
+    inner_types: list[str] = []  # added later from catalog
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
     is_primary_key: Optional[bool] = False
@@ -217,7 +172,7 @@ class DbtModelColumn(BaseModel):
         constraints = values.get("constraints", [])
 
         if {"type": "primary_key"} in constraints:
-            logging.debug("Found primary key on %s model", values["name"])
+            logging.debug("Found primary key constraint on %s model", values["name"])
             values["is_primary_key"] = True
 
         return values
@@ -235,6 +190,7 @@ class DbtModel(DbtNode):
     Contains information about the model's structure, columns, and metadata.
     """
 
+    database: Optional[str] = None
     resource_type: Literal["model"]
     relation_name: str
     db_schema: str = Field(..., alias="schema")

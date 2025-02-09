@@ -11,6 +11,20 @@ class ExtendedEnum(Enum):
         return member.value if (member := cls.__members__.get(key)) else None
 
 
+class BigqueryUrl(str, ExtendedEnum):
+    BIGQUERY = "https://bigquery.googleapis.com/bigquery/v2/projects/{project_id}/datasets/{dataset_id}/tables/{table_id}"
+
+
+class BigqueryMode(str, ExtendedEnum):
+    REPEATED = "REPEATED"
+
+
+class BigqueryType(str, ExtendedEnum):
+    RECORD = "RECORD"
+    ARRAY = "ARRAY"
+    STRUCT = "STRUCT"
+
+
 class SupportedDbtAdapters(str, ExtendedEnum):
     """BigQuery is the only supported adapter."""
 
@@ -135,6 +149,7 @@ class LookerBigQueryDataType(str, ExtendedEnum):
     BYTES = "string"
     ARRAY = "string"
     STRUCT = "string"
+    JSON = "string"
 
 
 class LookerDateTimeTypes(str, ExtendedEnum):

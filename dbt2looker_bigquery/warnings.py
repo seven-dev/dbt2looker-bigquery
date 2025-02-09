@@ -5,6 +5,10 @@ class DeprecationWarning(UserWarning):
     pass
 
 
+class CatalogWarning(UserWarning):
+    pass
+
+
 class ParsingWarning(UserWarning):
     pass
 
@@ -17,6 +21,3 @@ def capture_warning(message, category, filename, lineno, file=None, line=None):
 
 
 warnings.showwarning = capture_warning
-
-# warnings.simplefilter("always", DeprecationWarning)  # Capture our custom warnings
-# warnings.simplefilter("always", ParsingWarning)  # Capture our custom warnings

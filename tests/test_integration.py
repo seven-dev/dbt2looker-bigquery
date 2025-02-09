@@ -63,6 +63,18 @@ class TestIntegration:
         )
         self._test(
             content,
+            "type:",
+            "count",
+            26,
+        )
+        self._test(
+            content,
+            "type: left_outer",
+            "count",
+            3,
+        )
+        self._test(
+            content,
             "explore: example_retail_data__fact_daily_sales {",
             "include",
         )
@@ -127,6 +139,12 @@ class TestIntegration:
             cli,
             args,
             file_path,
+        )
+        self._test(
+            content,
+            "type:",
+            "count",
+            23,
         )
         self._test(
             content,
@@ -644,6 +662,14 @@ class TestIntegration:
                     type: number
                     sql: ${TABLE}.inside_array_struct.episode_number ;;
                     description: ""
+                }
+
+                dimension: inside_array_struct {
+                    type: string
+                    sql: inside_array_struct ;;
+                    description: "missing column from manifest.json, generated from catalog.json"
+                    tags: ["struct"]
+                    hidden: yes
                 }
 
                 dimension: episode_release_iso_year {

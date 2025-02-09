@@ -1,54 +1,97 @@
-# import google.auth
-# from google.auth.transport.requests import Request
-# import requests
+import google.auth
+from google.auth.transport.requests import Request
+import requests
+from dbt2looker_bigquery.database.models.bigqueryTable import (
+    BigQueryTableSchema,
+    BigQueryFieldSchema,
+)
 
-# from dbt2looker_bigquery.database.models.bigqueryTable import BigQueryTableSchema
+from dbt2looker_bigquery.models.dbt import DbtCatalogNode
+from dbt2looker_bigquery.enums import BigqueryMode, BigqueryType, BigqueryUrl
 
 
-# class BigQueryDatabase:
-#     def _fetch_table_schema(
-#         project_id: str, dataset_id: str, table_id: str
-#     ) -> BigQueryTableSchema:
-#         """Fetch the schema of a BigQuery table and parse it into a Pydantic model."""
-#         # Set up your authentication
-#         credentials, _ = google.auth.default()
+class BigQueryDatabase:
+    def _fetch_table_schema(
+        self, project_id: str, dataset_id: str, table_id: str
+    ) -> BigQueryTableSchema:
+        """Fetch the schema of a BigQuery table and parse it into a Pydantic model."""
+        credentials, _ = google.auth.default()
 
-#         # Refresh the token
-#         credentials.refresh(Request())
+        credentials.refresh(Request())
 
-#         # Construct the URL
-#         url = f"https://bigquery.googleapis.com/bigquery/v2/projects/{project_id}/datasets/{dataset_id}/tables/{table_id}"
+        url = BigqueryUrl.BIGQUERY.value.format(
+            project_id=project_id, dataset_id=dataset_id, table_id=table_id
+        )
 
-#         # Make the request
-#         headers = {"Authorization": f"Bearer {credentials.token}"}
-#         response = requests.get(url, headers=headers)
-#         response.raise_for_status()  # Raise an error for bad status codes
+        headers = {"Authorization": f"Bearer {credentials.token}"}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
 
-#         # Extract schema information
-#         table_info = response.json()
+        table_info = response.json()
 
-#         # Validate and parse schema using Pydantic
-#         schema = BigQueryTableSchema(fields=table_info["schema"]["fields"])
+        schema = BigQueryTableSchema(fields=table_info["schema"]["fields"])
 
-#         return schema
+        return schema
 
-#     def get_native_table_schema(self, table_name: str) -> BigQueryTableSchema:
-#         """Fetch the schema of a dbt table and parse it into a Pydantic model."""
-#         # Extract project_id, dataset_id, and table_id from the table_name
-#         project_id, dataset_id, table_id = table_name.split(".")
+    def _recurse_types(self, field: BigQueryFieldSchema, include_name=False) -> str:
+        """Recursively parse the type of a field, by including nested fields in type."""
+        if field.type == BigqueryType.RECORD.value:
+            inner_types = []
+            for sub_field in field.fields:
+                inner_types.append(self._recurse_types(sub_field, include_name=True))
+            if field.mode == BigqueryMode.REPEATED.value:
+                type = f"{BigqueryType.ARRAY.value}<{BigqueryType.STRUCT.value}<{', '.join(inner_types)}>>"
+            else:
+                type = f"{BigqueryType.STRUCT.value}<{', '.join(inner_types)}>"
+        else:
+            if field.mode == BigqueryMode.REPEATED.value:
+                type = f"{BigqueryType.ARRAY.value}<{field.type}>"
+            else:
+                type = field.type
 
-#         # Fetch the schema
-#         return self._fetch_table_schema(project_id, dataset_id, table_id)
+        if include_name:
+            type = f"{field.name} {type}"
+        return type
 
-#     def _translate_schema_to_dbt_model(self, schema: BigQueryTableSchema) -> dict:
-#         """Translate a BigQueryTableSchema to a dbt model schema."""
-#         # Convert the schema to a dbt model schema
-#         dbt_schema = schema.to_dbt_model_schema()
-#         return dbt_schema
+    def _recursively_flatten_fields(self, fields: list[BigQueryFieldSchema], prefix=""):
+        """Recursively flatten the fields of a schema, moving nested fields to the top level."""
+        flat_fields = []
+        for field in fields:
+            field.name = prefix + field.name
+            if field.fields:
+                flat_fields.extend(
+                    self._recursively_flatten_fields(field.fields, field.name + ".")
+                )
+            flat_fields.append(field)
+        return flat_fields
 
-#     def get_dbt_table_schema(self, table_name: str) -> BigQueryTableSchema:
-#         """get the schema of a dbt table and parse it into a common dbt model schema."""
-#         bigquery_schema = self.get_native_table_schema(table_name)
+    def _recurse_type_fields(self, fields):
+        """Recursively adjust the type of fields and nested fields to match dbt catalog format."""
+        for field in fields:
+            field.type = self._recurse_types(field)
+            if field.fields:
+                self._recurse_type_fields(field.fields)
 
-#         # Convert the schema to a dbt model schema
-#         dbt_schema = bigquery_schema.to_dbt_model_schema()
+    def _translate_schema_to_dbt_model(
+        self, schema: BigQueryTableSchema
+    ) -> DbtCatalogNode:
+        """Translate a BigQueryTableSchema to a dbt model schema."""
+
+        self._recurse_type_fields(schema.fields)
+        schema.fields = self._recursively_flatten_fields(schema.fields)
+
+        dict_schema = schema.model_dump()
+        catalog_nodes = {}
+        for field in dict_schema.get("fields"):
+            catalog_nodes[field.get("name")] = field
+        catalog_schema = {}
+        catalog_schema["columns"] = catalog_nodes
+
+        return DbtCatalogNode(**catalog_schema)
+
+    def get_dbt_table_schema(self, project, dataset, table_id) -> BigQueryTableSchema:
+        """get the schema of a dbt table and parse it into a common dbt model schema."""
+        schema = self._fetch_table_schema(project, dataset, table_id)
+        catalog_schema = self._translate_schema_to_dbt_model(schema)
+
+        return catalog_schema

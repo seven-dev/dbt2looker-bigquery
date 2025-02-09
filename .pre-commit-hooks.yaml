@@ -1,6 +1,6 @@
-- id: strict-verify
+- id: verify
   name: verify
-  entry: dbt2looker --strict --dry-run -s
+  entry: dbt2looker --prefilter --strict --dry-run -ts DATABASE -s
   description: "verify that dbt models are compatible with Looker"
   language: python
   require_serial: false
@@ -8,7 +8,7 @@
 
 - id: generate
   name: generate
-  entry: dbt2looker -s
+  entry: dbt2looker --prefilter -ts DATABASE -s
   description: "generate Looker model files from catalog and manifest for modified models"
   language: python
   require_serial: true

@@ -1,4 +1,4 @@
-# dbt2looker-bigquery (active as of 13.9.2024)
+# dbt2looker-bigquery (active as of 06.02.2025)
 
 Use `dbt2looker-bigquery` to generate Looker view files automatically from dbt models in Bigquery.
 
@@ -7,7 +7,7 @@ Use `dbt2looker-bigquery` to generate Looker view files automatically from dbt m
 Higly inspired by dbt2lookml, all credit to @magnus-ffcg for the structure, he has refactored most of the code.
 
 This is a fork of dbt2looker that is specific to bigquery.
-Most of the code has been refactored by @
+
 The intention is to allow one to define most of the simple and tedious lookml settings in dbt.
 That way the lookml code gets less bloated, and can be more focused on advanced metrics and explores.
 
@@ -51,11 +51,11 @@ dbt2looker
 ```
 options:
   -h, --help            show this help message and exit
-  --version             show program's version number and exit
+  --version, -v         show program's version number and exit
   --target-dir TARGET_DIR
                         Path to dbt target directory containing manifest.json and catalog.json. Default is "./target"
   --tag TAG             Filter to dbt models using this tag, can be combined with --exposures-only to only generate lookml files for exposures with this tag
-  --log-level {DEBUG,INFO,WARN,ERROR}
+  --log-level {DEBUG,INFO,WARN,ERROR}, -log {DEBUG,INFO,WARN,ERROR}
                         Set level of logs. Default is INFO
   --output-dir OUTPUT_DIR
                         Path to a directory that will contain the generated lookml files
@@ -63,16 +63,34 @@ options:
   --exposures-tag EXPOSURES_TAG
                         filter to exposures with a specific tag
   --skip-explore        add this flag to skip generating an sample "explore" in views for nested structures
-  --use-table-name      Experimental: add this flag to use table names on views and explore
-  --select SELECT       select a specific model to generate lookml for, ignores tag and explore
-  --generate-locale     Experimental: Generate locale files for each label on each field in view
+  --use-table-name      add this flag to use table names on views and explore instead of dbt file names. useful for versioned models
+  --select SELECT [SELECT ...], -s SELECT [SELECT ...]
+                        select one or more specific models to generate lookml for, ignores tag and explore, Will remove / and .sql if present
   --all-hidden          add this flag to force all dimensions and measures to be hidden
   --folder-structure FOLDER_STRUCTURE
-                        Define the source of the folder structure. Default is 'BIGQUERY_DATASET', other option is 'DBT_FOLDER'
+                        Define the source of the folder structure. Default is 'fBIGQUERY_DATASET', options ['BIGQUERY_DATASET', 'DBT_FOLDER']
   --remove-prefix-from-dataset REMOVE_PREFIX_FROM_DATASET
-                        Experimental: Remove prefix from dataset name, only works with 'BIGQUERY_DATASET' folder structure
+                        Remove a prefix from dataset name, only works with 'BIGQUERY_DATASET' folder structure
+  --show-arrays-and-structs
+                        Experimental: stop arrays and structs from being hidden by default
   --implicit-primary-key
+                        Add this flag to set primary keys on views based on the first field
+  --dry-run             Add this flag to run the script without writing any files
+  --strict              Experimental: Add this flag to enable strict mode. This will raise an error for any lookml parsing errors and deprecations. It will
+                        expect all --select models to generate files.
+  --prefilter           Experimental: add this flag to prefilter the manifest.json file before parsing for --select
+  --typing-source TYPING_SOURCE, -ts TYPING_SOURCE
+                        Experimental: Define the catalog parser to use. Default is 'CATALOG', options ['DATABASE', 'CATALOG']
 ```
+
+## primary keys
+Setting primary keys in Looker is important for many measures.
+Defining a dimension in dbt as primary key for looker can be done by setting a constraint on the dbt column:
+``` yaml
+
+```
+Please note that setting a constraint like this does not get enforced in Bigquery.
+
 
 ## lookml in dbt examples
 
@@ -105,3 +123,7 @@ models:
 ## pre-commit hook
 
 You can use dbt2looker-bigquery in your dbt repository as a pre-commit hook, to validate your lookml configuration while working.
+
+verify: checks that lookml is properly defined, and no errors occur during parsing
+generate: generate a lookml view file for the modified models.
+

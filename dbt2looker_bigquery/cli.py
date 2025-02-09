@@ -16,7 +16,7 @@ from rich.logging import RichHandler
 from dbt2looker_bigquery.exceptions import CliError
 from dbt2looker_bigquery.generators import LookmlGenerator
 from dbt2looker_bigquery.parsers import DbtParser
-from dbt2looker_bigquery.utils import FileHandler, DeprecationWarnings
+from dbt2looker_bigquery.utils import FileHandler
 
 logging.basicConfig(
     level=logging.INFO, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
@@ -36,7 +36,6 @@ class Cli:
     def __init__(self):
         self._args_parser = self._init_argparser()
         self._file_handler = FileHandler()
-        self._deprecation_warnings = DeprecationWarnings()
 
     def _init_argparser(self):
         """Create and configure the argument parser"""
@@ -149,6 +148,18 @@ class Cli:
             action="store_true",
             default=False,
         )
+        parser.add_argument(
+            "--prefilter",
+            help="Experimental: add this flag to prefilter the manifest.json file before parsing for --select",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
+            "--typing-source",
+            "-ts",
+            help="Experimental: Define the catalog parser to use. Default is 'CATALOG', options ['DATABASE', 'CATALOG']",
+            default="CATALOG",
+        )
         parser.set_defaults(
             build_explore=True, write_output=True, hide_arrays_and_structs=True
         )
@@ -205,16 +216,21 @@ class Cli:
         raw_manifest = self._file_handler.read(
             os.path.join(args.target_dir, "manifest.json")
         )
-        raw_catalog = self._file_handler.read(
-            os.path.join(args.target_dir, "catalog.json")
-        )
 
-        parser = DbtParser(raw_manifest, raw_catalog)
+        if args.typing_source == "DATABASE":
+            logging.debug("Using database as typing source, skipping catalog.json")
+            raw_catalog = None
+        else:
+            raw_catalog = self._file_handler.read(
+                os.path.join(args.target_dir, "catalog.json")
+            )
+
+        parser = DbtParser(raw_manifest, raw_catalog, args)
         return parser.get_models(args)
 
     def run(self):
         """Run the CLI"""
-        deprecation_messages = []
+        user_feedback = []
 
         try:
             args = self._args_parser.parse_args()
@@ -225,20 +241,21 @@ class Cli:
 
             for msg, cat, _, _ in captured_warnings:
                 key = f"{cat.__name__}: {msg}"
-                if key not in deprecation_messages:
-                    deprecation_messages.append(key)
+                if key not in user_feedback:
+                    user_feedback.append(key)
 
         except CliError as e:
             # Logs should already be printed by the handler
             logging.error(f"Error occurred during generation. Stopped execution. {e}")
 
-        if deprecation_messages:
-            for m in deprecation_messages:
-                logging.warning(m)
+        if user_feedback:
+            for m in user_feedback:
+                if args.strict:
+                    logging.error(m)
+                else:
+                    logging.warning(m)
             if args.strict:
-                raise CliError(
-                    "Strict mode enabled. Stopped execution due to warnings."
-                )
+                exit(1)
 
 
 def main():

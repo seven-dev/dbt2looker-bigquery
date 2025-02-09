@@ -5,6 +5,18 @@ from dbt2looker_bigquery.exceptions import CliError
 from dbt2looker_bigquery.models.dbt import DbtModel
 
 
+def strip_model_name(model_name: str) -> str:
+    """Clean model names from dbt paths."""
+    # remove before / eg model/name = name
+    if "/" in model_name:
+        model_name = model_name.split("/")[-1]
+    # remove after . eg model_name.sql = model_name
+    if "." in model_name:
+        model_name = model_name.split(".")[0]
+
+    return model_name
+
+
 class FileHandler:
     def read(self, file_path: str, is_json=True) -> dict:
         """Load file from disk. Default is to load as a JSON file
@@ -196,24 +208,3 @@ class StructureGenerator:
             if not matched:
                 raise Exception(f"Could not find a match for column {column.name}")
         return grouped_data
-
-
-class DeprecationWarnings:
-    """Warn about deprecated features"""
-
-    def __init__(self):
-        self.warnings = []
-
-    def store_deprecation_warning(self, message: str):
-        """Store a deprecation warning message"""
-        self.warnings.append(message)
-
-    def print_deprecation_warnings(self):
-        print_warnings = list(set(self.warnings))
-        logging.warning("!Deprecation warnings:")
-        for warning in print_warnings:
-            logging.warning(warning)
-
-    def has_warnings(self):
-        if len(self.warnings) > 0:
-            return True

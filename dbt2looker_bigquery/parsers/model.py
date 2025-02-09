@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Optional
 
 from dbt2looker_bigquery.models.dbt import DbtManifest, DbtModel
+from dbt2looker_bigquery.utils import strip_model_name
 
 
 class ModelParser:
@@ -32,17 +33,6 @@ class ModelParser:
 
         return all_models
 
-    def _strip_model_name(self, model_name: str) -> str:
-        """Clean model names from dbt paths."""
-        # remove before / eg model/name = name
-        if "/" in model_name:
-            model_name = model_name.split("/")[-1]
-        # remove after . eg model_name.sql = model_name
-        if "." in model_name:
-            model_name = model_name.split(".")[0]
-
-        return model_name
-
     def filter_models(
         self,
         models_list: List[DbtModel],
@@ -55,20 +45,20 @@ class ModelParser:
 
         if select_model:
             selection_criteria = [
-                self._strip_model_name(selector) for selector in select_model
+                strip_model_name(selector) for selector in select_model
             ]
             filtered_models = [
                 model for model in filtered if model.name in selection_criteria
             ]
-            logging.debug(f"Filtered models after select: {len(filtered_models)}")
+            logging.debug(f"Models after select: {len(filtered_models)}")
             return filtered_models
 
         if tag:
             filtered = [model for model in filtered if self._tags_match(tag, model)]
-            logging.debug(f"Filtered models after tag: {len(filtered)}")
+            logging.debug(f"Models after tag: {len(filtered)}")
         if exposed_names:
             filtered = [model for model in filtered if model.name in exposed_names]
-            logging.debug(f"Filtered models after exposures: {len(filtered)}")
+            logging.debug(f"Models after exposures: {len(filtered)}")
         return filtered
 
     def _filter_nodes_by_type(self, nodes: Dict, resource_type: str) -> List[DbtModel]:

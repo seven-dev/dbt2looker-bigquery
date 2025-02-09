@@ -32,10 +32,35 @@ class TestCatalogParser:
                         "id": {
                             "name": "id",
                             "type": "INT64",
-                            "data_type": "INT64",
-                            "inner_types": ["INT64"],
-                            "index": 1,
-                        }
+                        },
+                        "alt_int": {
+                            "name": "alt_int",
+                            "type": "INTEGER",
+                        },
+                        "float_col": {
+                            "name": "float_col",
+                            "type": "FLOAT",
+                        },
+                        "alt_float": {
+                            "name": "alt_float",
+                            "type": "FLOAT64",
+                        },
+                        "numeric_col": {
+                            "name": "numeric_col",
+                            "type": "NUMERIC(10, 2)",
+                        },
+                        "struct_col": {
+                            "name": "struct_col",
+                            "type": "STRUCT<id INT64, name STRING>",
+                        },
+                        "array_struct_col": {
+                            "name": "array_col",
+                            "type": "ARRAY<STRUCT<id INT64, name STRING>>",
+                        },
+                        "array_col": {
+                            "name": "array_col",
+                            "type": "ARRAY<STRING>",
+                        },
                     },
                 }
             }
@@ -48,22 +73,47 @@ class TestCatalogParser:
 
     def test_get_catalog_column_info(self, parser):
         """Test retrieving column type from catalog."""
-        data_type, inner_types = parser._get_catalog_column_info(
-            "model.test.model1", "id"
-        )
+        parser._get_catalog_node("model.test.model1")
+        data_type, inner_types = parser._get_typing_information("id")
         assert data_type == "INT64"
         assert inner_types == ["INT64"]
 
+        data_type, inner_types = parser._get_typing_information("struct_col")
+        assert data_type == "STRUCT"
+        assert inner_types == ["id INT64", "name STRING"]
+
+        data_type, inner_types = parser._get_typing_information("array_struct_col")
+        assert data_type == "ARRAY"
+        assert inner_types == ["id INT64", "name STRING"]
+
+        data_type, inner_types = parser._get_typing_information("array_col")
+        assert data_type == "ARRAY"
+        assert inner_types == ["STRING"]
+
+        data_type, inner_types = parser._get_typing_information("numeric_col")
+        assert data_type == "NUMERIC"
+        assert inner_types == ["NUMERIC"]
+
+        data_type, inner_types = parser._get_typing_information("float_col")
+        assert data_type == "FLOAT64"
+        assert inner_types == ["FLOAT64"]
+
+        data_type, inner_types = parser._get_typing_information("alt_int")
+        assert data_type == "INT64"
+        assert inner_types == ["INT64"]
+
+        data_type, inner_types = parser._get_typing_information("alt_float")
+        assert data_type == "FLOAT64"
+        assert inner_types == ["FLOAT64"]
+
         # Test non-existent model/column
-        data_type, inner_types = parser._get_catalog_column_info(
-            "non.existent.model", "id"
-        )
+        data_type, inner_types = parser._get_typing_information("non_existent")
         assert data_type is None
         assert inner_types == []
 
     def test_create_missing_array_column(self, parser):
         """Test creating a missing array column."""
-        column = parser._create_missing_array_column(
+        column = parser._create_missing_column(
             column_name="test_array", data_type="ARRAY<STRING>", inner_types=["STRING"]
         )
 
@@ -78,6 +128,7 @@ class TestCatalogParser:
 
     def test_process_model(self, parser):
         """Test processing a model with catalog information."""
+
         model = DbtModel(
             resource_type="model",
             name="model1",
@@ -89,7 +140,6 @@ class TestCatalogParser:
                 "id": DbtModelColumn(
                     name="id",
                     description="Primary key",
-                    data_type=None,
                     meta=DbtModelColumnMeta(
                         looker=DbtMetaColumnLooker(
                             dimension=DbtMetaLookerDimension(

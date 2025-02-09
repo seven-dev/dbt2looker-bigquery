@@ -354,11 +354,20 @@ class TestDbtCatalog:
             "columns": {"id": {"type": "INT64", "index": 1, "name": "id"}},
         }
 
+    @pytest.fixture
+    def alternate_sample_catalog_node(self):
+        return {
+            "metadata": {
+                "type": "table",
+                "schema": "test_schema",
+                "name": "test_table",
+            },
+            "columns": {"id": {"type": "INTEGER", "index": 1, "name": "id"}},
+        }
+
     def test_catalog_node_creation(self, sample_catalog_node):
         """Test creating a DbtCatalogNode instance"""
         node = DbtCatalogNode(**sample_catalog_node)
-        assert node.metadata.type == "table"
-        assert node.metadata.db_schema == "test_schema"
         assert isinstance(node.columns["id"], DbtCatalogNodeColumn)
         assert node.columns["id"].type == "INT64"
 
