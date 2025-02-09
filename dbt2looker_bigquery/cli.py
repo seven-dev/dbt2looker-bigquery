@@ -16,7 +16,7 @@ from rich.logging import RichHandler
 from dbt2looker_bigquery.exceptions import CliError
 from dbt2looker_bigquery.generators import LookmlGenerator
 from dbt2looker_bigquery.parsers import DbtParser
-from dbt2looker_bigquery.utils import FileHandler, DeprecationWarnings
+from dbt2looker_bigquery.utils import FileHandler
 
 logging.basicConfig(
     level=logging.INFO, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
@@ -36,7 +36,6 @@ class Cli:
     def __init__(self):
         self._args_parser = self._init_argparser()
         self._file_handler = FileHandler()
-        self._deprecation_warnings = DeprecationWarnings()
 
     def _init_argparser(self):
         """Create and configure the argument parser"""
@@ -217,9 +216,14 @@ class Cli:
         raw_manifest = self._file_handler.read(
             os.path.join(args.target_dir, "manifest.json")
         )
-        raw_catalog = self._file_handler.read(
-            os.path.join(args.target_dir, "catalog.json")
-        )
+
+        if args.typing_source == "DATABASE":
+            logging.debug("Using database as typing source, skipping catalog.json")
+            raw_catalog = None
+        else:
+            raw_catalog = self._file_handler.read(
+                os.path.join(args.target_dir, "catalog.json")
+            )
 
         parser = DbtParser(raw_manifest, raw_catalog, args)
         return parser.get_models(args)

@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Optional, Union
 import warnings
-from dbt2looker_bigquery.warnings import DeprecationWarning
+from dbt2looker_bigquery.warnings import DeprecationWarning, ParsingWarning
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -25,7 +25,10 @@ def yes_no_validator(value: Union[bool, str]):
     elif value.lower() in ["true", "false"]:
         return "yes" if value.lower() == "true" else "no"
     else:
-        logging.warning(f'Value must be "yes", "no", or a boolean. Got {value}')
+        warnings.warn(
+            f"lookml yesno, parsing error: Value must be yes, no, or a boolean. Got {value}",
+            ParsingWarning,
+        )
         return None
 
 
@@ -88,29 +91,6 @@ class DbtCatalogNodeColumn(BaseModel):
 
     name: str
     type: str
-    # data_type: Optional[str] = "MISSING"
-    # inner_types: Optional[List[str]] = []
-
-    # @model_validator(mode="before")
-    # @classmethod
-    # def validate_inner_type(cls, values):
-    #     column_type = values.get("type")
-
-    #     def truncate_before_character(string, character):
-    #         pos = string.find(character)
-    #         return string[:pos] if pos != -1 else string
-
-    #     if column_type is None:
-    #         return values
-
-    #     data_type = truncate_before_character(column_type, "<")
-    #     values["data_type"] = truncate_before_character(data_type, "(")
-
-    #     inner_types = schema_parser.parse(column_type)
-    #     if inner_types and inner_types != column_type:
-    #         values["inner_types"] = inner_types
-
-    #     return values
 
 
 class DbtCatalogNode(BaseModel):
@@ -192,7 +172,7 @@ class DbtModelColumn(BaseModel):
         constraints = values.get("constraints", [])
 
         if {"type": "primary_key"} in constraints:
-            logging.debug("Found primary key on %s model", values["name"])
+            logging.debug("Found primary key constraint on %s model", values["name"])
             values["is_primary_key"] = True
 
         return values
