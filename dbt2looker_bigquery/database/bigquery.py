@@ -7,22 +7,7 @@ from dbt2looker_bigquery.database.models.bigqueryTable import (
 )
 
 from dbt2looker_bigquery.models.dbt import DbtCatalogNode
-
-from enum import Enum
-
-
-class Url(Enum):
-    BIGQUERY = "https://bigquery.googleapis.com/bigquery/v2/projects/{project_id}/datasets/{dataset_id}/tables/{table_id}"
-
-
-class Mode(Enum):
-    REPEATED = "REPEATED"
-
-
-class Type(Enum):
-    RECORD = "RECORD"
-    ARRAY = "ARRAY"
-    STRUCT = "STRUCT"
+from dbt2looker_bigquery.enums import BigqueryMode, BigqueryType, BigqueryUrl
 
 
 class BigQueryDatabase:
@@ -34,7 +19,7 @@ class BigQueryDatabase:
 
         credentials.refresh(Request())
 
-        url = Url.BIGQUERY.value.format(
+        url = BigqueryUrl.BIGQUERY.value.format(
             project_id=project_id, dataset_id=dataset_id, table_id=table_id
         )
 
@@ -50,19 +35,17 @@ class BigQueryDatabase:
 
     def _recurse_types(self, field: BigQueryFieldSchema, include_name=False) -> str:
         """Recursively parse the type of a field, by including nested fields in type."""
-        if field.type == Type.RECORD.value:
+        if field.type == BigqueryType.RECORD.value:
             inner_types = []
             for sub_field in field.fields:
                 inner_types.append(self._recurse_types(sub_field, include_name=True))
-            if field.mode == Mode.REPEATED.value:
-                type = (
-                    f"{Type.ARRAY.value}<{Type.STRUCT.value}<{', '.join(inner_types)}>>"
-                )
+            if field.mode == BigqueryMode.REPEATED.value:
+                type = f"{BigqueryType.ARRAY.value}<{BigqueryType.STRUCT.value}<{', '.join(inner_types)}>>"
             else:
-                type = f"{Type.STRUCT.value}<{', '.join(inner_types)}>"
+                type = f"{BigqueryType.STRUCT.value}<{', '.join(inner_types)}>"
         else:
-            if field.mode == Mode.REPEATED.value:
-                type = f"{Type.ARRAY.value}<{field.type}>"
+            if field.mode == BigqueryMode.REPEATED.value:
+                type = f"{BigqueryType.ARRAY.value}<{field.type}>"
             else:
                 type = field.type
 
@@ -106,11 +89,9 @@ class BigQueryDatabase:
 
         return DbtCatalogNode(**catalog_schema)
 
-    def get_dbt_table_schema(self, model) -> BigQueryTableSchema:
+    def get_dbt_table_schema(self, project, dataset, table_id) -> BigQueryTableSchema:
         """get the schema of a dbt table and parse it into a common dbt model schema."""
-
-        table_id = model.unique_id.split(".")[-1]
-        schema = self._fetch_table_schema(model.database, model.db_schema, table_id)
+        schema = self._fetch_table_schema(project, dataset, table_id)
         catalog_schema = self._translate_schema_to_dbt_model(schema)
 
         return catalog_schema

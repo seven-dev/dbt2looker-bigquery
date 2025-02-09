@@ -6,7 +6,6 @@ from dbt2looker_bigquery.warnings import DeprecationWarning
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from dbt2looker_bigquery import enums
-from dbt2looker_bigquery.schema import SchemaParser
 
 try:
     from typing import Literal
@@ -15,8 +14,6 @@ except ImportError:
 
 from dbt2looker_bigquery.exceptions import UnsupportedDbtAdapterError
 from dbt2looker_bigquery.models.looker import DbtMetaLooker, DbtMetaColumnLooker
-
-schema_parser = SchemaParser()
 
 
 def yes_no_validator(value: Union[bool, str]):
@@ -90,26 +87,30 @@ class DbtCatalogNodeColumn(BaseModel):
     """A column in a dbt catalog node"""
 
     name: str
-    data_type: Optional[str] = "MISSING"
-    inner_types: Optional[List[str]] = []
+    type: str
+    # data_type: Optional[str] = "MISSING"
+    # inner_types: Optional[List[str]] = []
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_inner_type(cls, values):
-        column_type = values.get("type")
+    # @model_validator(mode="before")
+    # @classmethod
+    # def validate_inner_type(cls, values):
+    #     column_type = values.get("type")
 
-        def truncate_before_character(string, character):
-            pos = string.find(character)
-            return string[:pos] if pos != -1 else string
+    #     def truncate_before_character(string, character):
+    #         pos = string.find(character)
+    #         return string[:pos] if pos != -1 else string
 
-        data_type = truncate_before_character(column_type, "<")
-        values["data_type"] = truncate_before_character(data_type, "(")
+    #     if column_type is None:
+    #         return values
 
-        inner_types = schema_parser.parse(column_type)
-        if inner_types and inner_types != column_type:
-            values["inner_types"] = inner_types
+    #     data_type = truncate_before_character(column_type, "<")
+    #     values["data_type"] = truncate_before_character(data_type, "(")
 
-        return values
+    #     inner_types = schema_parser.parse(column_type)
+    #     if inner_types and inner_types != column_type:
+    #         values["inner_types"] = inner_types
+
+    #     return values
 
 
 class DbtCatalogNode(BaseModel):
@@ -162,8 +163,8 @@ class DbtModelColumn(BaseModel):
 
     name: str
     description: Optional[str] = None
-    data_type: Optional[str] = None
-    inner_types: list[str] = []
+    data_type: Optional[str] = None  # added later from catalog
+    inner_types: list[str] = []  # added later from catalog
     meta: Optional[DbtModelColumnMeta] = DbtModelColumnMeta()
     nested: Optional[bool] = False
     is_primary_key: Optional[bool] = False

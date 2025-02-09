@@ -9,6 +9,7 @@ import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List
+from dbt2looker_bigquery.enums import BigqueryType
 
 
 @dataclass
@@ -18,7 +19,6 @@ class SchemaField:
     name: str
     type_str: str
     path: List[str]
-    inner_types: List[str] = None
 
     def __str__(self) -> str:
         """Returns the complete field representation as it would appear in a schema."""
@@ -26,28 +26,20 @@ class SchemaField:
         return f"{path_str} {self.type_str}".strip()
 
 
-class SchemaParser:
-    """Parser for BigQuery schema strings that handles nested structures and complex types."""
+class TypeParser:
+    """Parser for dbt BigQuery schema strings that handles nested structures and complex types."""
 
     def __init__(self):
         self._fields: List[SchemaField] = []
         self._current_path: List[str] = []
 
-    def _parse_inner_content(self, text: str) -> str:
+    def _find_inner_content(self, text: str) -> str:
         """Extracts content within angle brackets."""
-        current = []
-        level = 0
-
-        for char in text:
-            if char == "<":
-                level += 1
-            elif char == ">":
-                level -= 1
-                if level < 0:
-                    break
-            current.append(char)
-
-        return "".join(current).strip()
+        match = re.search(r"<(.*)>", text)
+        if match:
+            return match.group(1)
+        else:
+            return text
 
     def _split_fields(self, text: str) -> List[str]:
         """Splits content on top-level commas."""
@@ -69,24 +61,31 @@ class SchemaParser:
 
         return [f for f in result if f]
 
-    def _normalize_type(self, type_str: str) -> str:
-        """Normalizes type strings by removing precision/scale for numeric types."""
+    def _normalize_types(self, type_str: str) -> str:
+        """Normalizes type strings by normalizing types."""
         if "NUMERIC" in type_str:
             return re.sub(r"NUMERIC\(\d+,\s*\d+\)", "NUMERIC", type_str)
         return type_str
 
     def _process_type(self, type_str: str) -> tuple[str, str, bool]:
         """Processes a type string to determine its structure.
-        Returns: (inner_content, type_prefix, has_struct)"""
-        type_str = self._normalize_type(type_str)
-        if type_str.startswith("ARRAY<"):
-            inner = self._parse_inner_content(type_str[6:])
-            if inner.startswith("STRUCT<"):
-                return self._parse_inner_content(inner[7:]), "ARRAY", True
-            return inner, inner, False
-        if type_str.startswith("STRUCT<"):
-            return self._parse_inner_content(type_str[7:]), "STRUCT", True
-        return type_str, type_str, False
+        Returns: (data_type, inner_type_str, has_struct)"""
+
+        is_struct = False
+        inner_type_str = type_str
+
+        if type_str.startswith(BigqueryType.ARRAY.value + "<"):
+            inner_type_str = self._find_inner_content(type_str)
+
+            if inner_type_str.startswith(BigqueryType.STRUCT.value + "<"):
+                is_struct = True
+                inner_type_str = self._find_inner_content(inner_type_str)
+
+        if type_str.startswith(BigqueryType.STRUCT.value + "<"):
+            is_struct = True
+            inner_type_str = self._find_inner_content(type_str)
+
+        return inner_type_str, is_struct
 
     @contextmanager
     def _path_context(self, name: str):
@@ -99,40 +98,53 @@ class SchemaParser:
             if name:
                 self._current_path.pop()
 
-    def _add_field(self, name: str, type_str: str, inner_types: List[str] = None):
+    def _add_field(self, name: str, type_str: str):
         """Adds a field to the result list."""
-        type_str = self._normalize_type(type_str)
+        type_str = self._normalize_types(type_str)
         self._fields.append(
             SchemaField(
                 name=name,
                 type_str=type_str,
                 path=self._current_path.copy(),
-                inner_types=inner_types,
             )
         )
 
     def _process_fields(self, content: str):
-        """Processes multiple field definitions."""
-        for field in self._split_fields(content):
+        """Iteratively processes field definitions."""
+        normalized_content = self._normalize_types(content)
+        for field in self._split_fields(normalized_content):
             name, type_str = field.split(" ", 1)
-            inner, type_prefix, has_struct = self._process_type(type_str.strip())
+            inner_type_str, has_struct = self._process_type(type_str.strip())
 
             if has_struct:
-                self._add_field(name, type_prefix)
+                self._add_field(name, inner_type_str)
                 with self._path_context(name):
-                    self._process_fields(inner)
+                    self._process_fields(inner_type_str)
             else:
                 self._add_field(name, type_str)
 
-    def parse(self, schema_str: str) -> List[str]:
-        """Parses a BigQuery schema string into a list of field definitions."""
+    def get_data_type(self, schema_str: str) -> str:
+        """Returns the outer data type for a schema string."""
+        if "<" not in schema_str:
+            return self._normalize_types(schema_str.strip())
+        else:
+            return self._normalize_types(schema_str.split("<")[0].strip())
+
+    def get_inner_types(self, schema_str: str) -> List[str]:
+        """Returns the outer data type and a list of inner types for a schema string."""
         self._fields = []
         self._current_path = []
 
-        inner, type_prefix, has_struct = self._process_type(schema_str)
-        if has_struct:
-            self._process_fields(inner)
-        else:
-            self._fields.append(SchemaField(name="", type_str=type_prefix, path=[]))
+        inner_type_str, is_struct = self._process_type(schema_str)
 
-        return sorted(str(field) for field in self._fields)
+        if is_struct:
+            self._process_fields(inner_type_str)
+        else:
+            self._add_field(
+                "",
+                inner_type_str,
+            )
+
+        inner_type_list = sorted(str(field) for field in self._fields)
+
+        return inner_type_list

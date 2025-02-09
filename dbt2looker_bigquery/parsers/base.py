@@ -4,8 +4,6 @@ from typing import Dict, List
 import logging
 from dbt2looker_bigquery.models.dbt import DbtCatalog, DbtManifest, DbtModel
 from dbt2looker_bigquery.parsers.catalog import CatalogParser
-from dbt2looker_bigquery.parsers.database_catalog import DatabaseCatalog
-
 from dbt2looker_bigquery.parsers.exposure import ExposureParser
 from dbt2looker_bigquery.parsers.model import ModelParser
 from dbt2looker_bigquery.utils import strip_model_name
@@ -29,10 +27,10 @@ class DbtParser:
 
         if hasattr(args, "typing_source") and args.typing_source == "DATABASE":
             self._catalog = None
-            self._catalog_parser = DatabaseCatalog()
+            self._catalog_parser = CatalogParser(use_database=True)
         else:
             self._catalog = DbtCatalog(**raw_catalog)
-            self._catalog_parser = CatalogParser(self._catalog)
+            self._catalog_parser = CatalogParser(catalog=self._catalog)
 
         self._exposure_parser = ExposureParser(self._manifest)
 

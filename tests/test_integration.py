@@ -646,6 +646,14 @@ class TestIntegration:
                     description: ""
                 }
 
+                dimension: inside_array_struct {
+                    type: string
+                    sql: inside_array_struct ;;
+                    description: "missing column from manifest.json, generated from catalog.json"
+                    tags: ["struct"]
+                    hidden: yes
+                }
+
                 dimension: episode_release_iso_year {
                     type: number
                     sql: Extract(isoyear from episode_release_date) ;;

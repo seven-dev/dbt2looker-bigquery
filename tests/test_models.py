@@ -369,13 +369,7 @@ class TestDbtCatalog:
         """Test creating a DbtCatalogNode instance"""
         node = DbtCatalogNode(**sample_catalog_node)
         assert isinstance(node.columns["id"], DbtCatalogNodeColumn)
-        assert node.columns["id"].data_type == "INT64"
-
-    def test_catalog_node_creation_alternate(self, alternate_sample_catalog_node):
-        """Test creating a DbtCatalogNode instance"""
-        node = DbtCatalogNode(**alternate_sample_catalog_node)
-        assert isinstance(node.columns["id"], DbtCatalogNodeColumn)
-        assert node.columns["id"].data_type == "INTEGER"
+        assert node.columns["id"].type == "INT64"
 
 
 class TestDbtExposure:
