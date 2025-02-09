@@ -74,9 +74,16 @@ options:
 ## primary keys
 Setting primary keys in Looker is important for many measures.
 Defining a dimension in dbt as primary key for looker can be done by setting a constraint on the dbt column:
-``` yaml
 
+``` yaml
+    columns:
+      - name: id
+        data_tests:
+          - unique
+        constraints:
+          - type: primary_key
 ```
+
 Please note that setting a constraint like this does not get enforced in Bigquery.
 
 ## Lookml in model yml
