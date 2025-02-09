@@ -1,4 +1,4 @@
-# dbt2looker-bigquery (active as of 06.02.2025)
+# dbt2looker-bigquery
 
 Use `dbt2looker-bigquery` to generate Looker view files automatically from dbt models in Bigquery.
 
