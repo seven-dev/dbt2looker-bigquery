@@ -144,7 +144,7 @@ class Cli:
         )
         parser.add_argument(
             "--strict",
-            help="Experimental: Add this flag to enable strict mode. This will raise an error for any lookml parsing errors and deprecations. It will expect all --select models to generate files.",
+            help="Add this flag to enable strict mode. This will raise an error for any lookml parsing errors and deprecations. It will expect all --select models to generate files.",
             action="store_true",
             default=False,
         )
