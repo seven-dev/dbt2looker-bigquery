@@ -4,7 +4,7 @@ name: PyPi Release
 on:
   push:
     tags:
-      - "prod-*"
+      - "v*"
     # and all branch commits
 jobs:
   release:
