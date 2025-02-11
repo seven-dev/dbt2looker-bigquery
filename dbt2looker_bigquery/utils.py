@@ -141,7 +141,10 @@ class StructureGenerator:
         self._cli_args = args
 
     def _find_levels(self, model: DbtModel) -> dict:
-        """Return group keys for the model columns by detecting array columns"""
+        """
+        Return group keys for the model columns by detecting array columns
+        and grouping them in the correct depth level
+        """
         grouped_data = {(0, ""): []}
 
         for column in model.columns.values():
@@ -156,8 +159,18 @@ class StructureGenerator:
 
         return grouped_data
 
-    def _find_permutations(self, column_name: str) -> dict:
-        """Return all permutation keys for a column name"""
+    def _find_permutations(self, column_name: str) -> list:
+        """Return a sorted list of permutation keys for a column name
+        a permutation key is a tuple with the depth level and the column name
+        for example:
+        column_name = "a.b.c"
+        permutations = [
+            (3, "a.b.c"),
+            (2, "a.b"),
+            (1, "a"),
+            (0, "")
+        ]
+        """
         keys = []
         path_parts = column_name.split(".")
         permutations = [
@@ -174,9 +187,6 @@ class StructureGenerator:
 
         sorted_keys = sorted(keys, key=lambda x: x[0], reverse=True)
         return sorted_keys
-
-    def _find_max_level(self, grouped_data: dict, model: DbtModel) -> int:
-        """Return the maximum depth level of the model columns"""
 
     def process_model(self, model: DbtModel):
         """analyze the model to group columns for views and joins"""

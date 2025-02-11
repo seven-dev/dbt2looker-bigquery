@@ -3,8 +3,16 @@
   entry: dbt2looker --prefilter --strict --dry-run -ts DATABASE -s
   description: "verify that dbt models are compatible with Looker"
   language: python
-  require_serial: false
-  types_or: [sql]
+  require_serial: true
+  types_or: [sql, yml]
+
+- id: verify_exposures
+  name: verify
+  entry: dbt2looker --prefilter --exposures-only --strict --dry-run -ts DATABASE -s
+  description: "verify that dbt models are compatible with Looker"
+  language: python
+  require_serial: true
+  types_or: [sql, yml]
 
 - id: generate
   name: generate
@@ -12,4 +20,4 @@
   description: "generate Looker model files from catalog and manifest for modified models"
   language: python
   require_serial: true
-  types_or: [sql]
+  types_or: [sql, yml]

@@ -42,6 +42,7 @@ def cli_args():
         implicit_primary_key=False,
         folder_structure="BIGQUERY_DATASET",
         remove_prefix_from_dataset="",
+        hide_arrays_and_structs=False,
     )
 
 
@@ -157,6 +158,18 @@ def test_lookml_dimensions_with_metadata(cli_args):
                             group_label="Custom Group",
                             value_format_name=LookerValueFormatName.USD,
                             description="Custom Description",
+                            can_filter=True,
+                            group_item_label="Group Item Label",
+                            order_by_field="order_by_field",
+                            suggestable=True,
+                            case_sensitive=False,
+                            allow_fill=True,
+                            filters=[
+                                DbtMetaLookerMeasureFilter(
+                                    filter_dimension="filter",
+                                    filter_expression="expression",
+                                )
+                            ],
                         )
                     ),
                 ),
@@ -180,6 +193,14 @@ def test_lookml_dimensions_with_metadata(cli_args):
     assert dimension["group_label"] == "Custom Group"
     assert dimension["description"] == "Custom Description"
     assert dimension["value_format_name"] == LookerValueFormatName.USD.value
+    assert dimension["can_filter"] == "yes"
+    assert dimension["group_item_label"] == "Group Item Label"
+    assert dimension["order_by_field"] == "order_by_field"
+    assert dimension["suggestable"] == "yes"
+    assert dimension["case_sensitive"] == "no"
+    assert dimension["allow_fill"] == "yes"
+    with pytest.raises(KeyError):  # dimensions can't have filters
+        _ = dimension["filters"]
 
 
 def test_lookml_measures_from_model(cli_args):
@@ -412,6 +433,112 @@ def test_view_definition(cli_args):
     assert hasattr(view_definition, "description") is False
     # views cannot be hidden
     assert hasattr(view_definition, "hidden") is False
+
+
+def test_complex_view_definition(cli_args):
+    """Test view definition generation"""
+
+    measure_generator = LookmlMeasureGenerator(cli_args)
+    dimension_generator = LookmlDimensionGenerator(cli_args)
+    generator = LookmlViewGenerator(cli_args)
+    model = DbtModel(
+        name="test_model",
+        path="models/test_model.sql",
+        relation_name="`project.dataset.table_name`",
+        columns={
+            "string_col": DbtModelColumn(
+                name="string_col",
+                data_type="STRING",
+                inner_types=["STRING"],
+                unique_id="test_model.string_col",
+                description="Custom Description",
+            ),
+            "amount": DbtModelColumn(
+                name="amount",
+                data_type="FLOAT64",
+                inner_types=["FLOAT64"],
+                unique_id="test_model.amount",
+            ),
+            "array_col": DbtModelColumn(
+                name="array_col",
+                data_type="ARRAY",
+                inner_types=["STRING"],
+                unique_id="test_model.array_col",
+                meta=DbtModelColumnMeta(
+                    looker=DbtMetaColumnLooker(
+                        view=DbtMetaLookerBase(
+                            label="BABY",
+                        )
+                    ),
+                ),
+            ),
+            "array_col.string": DbtModelColumn(
+                name="string",
+                data_type="STRING",
+                inner_types=["STRING"],
+                unique_id="test_model.array_col.string",
+            ),
+            "double_array": DbtModelColumn(
+                name="double_array",
+                data_type="ARRAY",
+                inner_types=["name ARRAY<string STRING>>"],
+                unique_id="test_model.double_array",
+                meta=DbtModelColumnMeta(
+                    looker=DbtMetaColumnLooker(
+                        view=DbtMetaLookerBase(
+                            label="ATE MY",
+                        )
+                    ),
+                ),
+            ),
+            "double_array.name": DbtModelColumn(
+                name="double_array.name",
+                data_type="ARRAY",
+                inner_types=["STRING"],
+                unique_id="test_model.double_array.name",
+                meta=DbtModelColumnMeta(
+                    looker=DbtMetaColumnLooker(
+                        view=DbtMetaLookerBase(
+                            label="ATE MY BABIES",
+                        )
+                    ),
+                ),
+            ),
+            "double_array.name.string": DbtModelColumn(
+                name="double_array.name.string",
+                data_type="STRING",
+                inner_types=["STRING"],
+                unique_id="test_model.double_array.name.string",
+            ),
+        },
+        meta=DbtModelMeta(
+            looker=DbtMetaLooker(
+                view=DbtMetaLookerBase(
+                    hidden=False,
+                    label="DINGO",
+                )
+            ),
+        ),
+        unique_id="test_model",
+        resource_type="model",
+        schema="test_schema",
+        description="Test model",
+        tags=[],
+    )
+
+    output = generator.generate(model, dimension_generator, measure_generator)
+    view_definition_main = output[0]
+
+    assert view_definition_main["name"] == "test_model"
+    assert view_definition_main["label"] == "DINGO"
+    assert view_definition_main["sql_table_name"] == "`project.dataset.table_name`"
+    # views cannot have a description
+    assert hasattr(view_definition_main, "description") is False
+    # views cannot be hidden
+    assert hasattr(view_definition_main, "hidden") is False
+    assert output[1]["label"] == "DINGO : BABY"
+    assert output[2]["label"] == "DINGO : ATE MY"
+    assert output[3]["label"] == "DINGO : ATE MY BABIES"
 
 
 @pytest.fixture

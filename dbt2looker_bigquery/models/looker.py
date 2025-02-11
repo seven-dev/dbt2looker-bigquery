@@ -118,6 +118,13 @@ class DbtMetaLookerDimension(DbtMetaLookerViewElement):
     convert_tz: Optional[bool] = Field(default=None)
     timeframes: Optional[List[LookerTimeFrame]] = Field(default=None)
     can_filter: Optional[Union[bool, str]] = Field(default=None)
+    group_item_label: Optional[str] = Field(default=None)
+    order_by_field: Optional[str] = Field(default=None)
+    suggestable: Optional[bool] = Field(default=None)
+    case_sensitive: Optional[bool] = Field(default=None)
+    allow_fill: Optional[bool] = Field(default=None)
+    # is only applicable to arrays that generate separate views
+    view_label: Optional[str] = Field(default=None)
 
     @field_validator("timeframes", mode="before")
     def check_enums(cls, values):
@@ -154,6 +161,7 @@ class DbtMetaColumnLooker(DbtMetaLookerViewElement):
 
     dimension: Optional[DbtMetaLookerDimension] = DbtMetaLookerDimension()
     measures: List[Union[DbtMetaLookerMeasure, BaseModel]] = []
+    view: Optional[DbtMetaLookerBase] = DbtMetaLookerBase()
 
     @model_validator(mode="before")
     def warn_outdated(cls, values):
@@ -169,7 +177,7 @@ class DbtMetaColumnLooker(DbtMetaLookerViewElement):
         if outdated_attrs and not values.get("dimension"):
             values["dimension"] = dimension_attrs
             warnings.warn(
-                "Putting dimension attributes in 'looker' is outdated and should be moved to 'looker: dimension:'.",
+                f"{dimension_attrs} Putting dimension attributes in 'looker' is outdated and should be moved to 'looker: dimension:'.",
                 DeprecationWarning,
             )
 
@@ -240,7 +248,7 @@ class DbtMetaLooker(BaseModel):
         if outdated_attrs and not values.get("view"):
             values["view"] = dimension_attrs
             warnings.warn(
-                "Putting view attributes in 'looker' is outdated and should be moved to 'looker: view:'.",
+                f"{outdated_attrs} Putting view attributes in 'looker' is outdated and should be moved to 'looker: view:'.",
                 DeprecationWarning,
             )
 

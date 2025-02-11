@@ -119,7 +119,19 @@ class LookmlDimensionGenerator:
         self._applier.apply_meta_attributes(
             dimension,
             column,
-            ["description", "group_label", "value_format_name", "label", "hidden"],
+            [
+                "description",
+                "group_label",
+                "value_format_name",
+                "can_filter",
+                "label",
+                "hidden",
+                "group_item_label",
+                "suggestable",
+                "case_sensitive",
+                "allow_fill",
+                "order_by_field",
+            ],
             "meta.looker.dimension",
         )
         return dimension

@@ -131,7 +131,7 @@ The hooks verify schemas by checking the tables exists in Bigquery, so you do no
 
 ```
   - repo: https://github.com/rognerud/dbt2looker-bigquery
-    rev: v0.22.0
+    rev: v0.23.1
     hooks:
       - id: verify
         files: ^models/

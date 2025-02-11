@@ -93,9 +93,14 @@ class LookmlViewGenerator:
 
                 prepath_label = prepath.replace("__", " : ").replace("_", " ").title()
 
+                if relevant_column := model.columns.get(prepath):
+                    self._applier.apply_meta_attributes(
+                        iteration_view, relevant_column, ["label"], "meta.looker.view"
+                    )
+
                 if base_view.get("label"):
                     iteration_view["label"] = self._dot.textualize_dots(
-                        f"{base_view['label']} : {prepath_label}"
+                        f"{base_view['label']} : {iteration_view["label"] or prepath_label}"
                     )
 
             view = self._build_view(
