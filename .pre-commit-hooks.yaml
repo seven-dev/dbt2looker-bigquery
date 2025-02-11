@@ -4,7 +4,7 @@
   description: "verify that dbt models are compatible with Looker"
   language: python
   require_serial: true
-  types_or: [sql, yml]
+  types_or: [sql, yaml]
 
 - id: verify_exposures
   name: verify
@@ -12,7 +12,7 @@
   description: "verify that dbt models are compatible with Looker"
   language: python
   require_serial: true
-  types_or: [sql, yml]
+  types_or: [sql, yaml]
 
 - id: generate
   name: generate
@@ -20,4 +20,4 @@
   description: "generate Looker model files from catalog and manifest for modified models"
   language: python
   require_serial: true
-  types_or: [sql, yml]
+  types_or: [sql, yaml]

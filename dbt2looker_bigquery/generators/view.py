@@ -100,7 +100,7 @@ class LookmlViewGenerator:
 
                 if base_view.get("label"):
                     iteration_view["label"] = self._dot.textualize_dots(
-                        f"{base_view['label']} : {iteration_view["label"] or prepath_label}"
+                        f"{base_view['label']} : {iteration_view['label'] or prepath_label}"
                     )
 
             view = self._build_view(
