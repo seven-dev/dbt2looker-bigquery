@@ -123,8 +123,7 @@ class DbtMetaLookerDimension(DbtMetaLookerViewElement):
     suggestable: Optional[bool] = Field(default=None)
     case_sensitive: Optional[bool] = Field(default=None)
     allow_fill: Optional[bool] = Field(default=None)
-    # is only applicable to arrays that generate separate views
-    view_label: Optional[str] = Field(default=None)
+    render_as_image: Optional[bool] = Field(default=False)
 
     @field_validator("timeframes", mode="before")
     def check_enums(cls, values):

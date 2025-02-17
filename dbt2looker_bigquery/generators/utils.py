@@ -60,6 +60,12 @@ class MetaAttributeApplier:
         if self.cli_args.all_hidden:
             target_dict["hidden"] = "yes"
 
+    def get_meta_attribute(self, obj: any, attr: str, path: str = "") -> any:
+        """Get a meta attribute from the given object if it exists."""
+        meta_obj = self._get_meta_object(obj, path)
+        if meta_obj is not None and hasattr(meta_obj, attr):
+            return getattr(meta_obj, attr)
+
     def _get_meta_object(self, obj, path):
         """Get the meta object by following the path"""
         if path == "":

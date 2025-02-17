@@ -102,6 +102,34 @@ def test_dimension_group_time(cli_args):
     assert result[0].get("convert_tz") == "yes"
 
 
+def test_dimension(cli_args):
+    """Test creation of time-based dimension groups"""
+
+    column = DbtModelColumn(
+        name="created_at",
+        data_type="STRING",
+        unique_id="test_model.created_at",
+        meta=DbtModelColumnMeta(
+            looker=DbtMetaColumnLooker(
+                dimension=DbtMetaLookerDimension(
+                    label="Custom Label",
+                    group_label="Custom Group",
+                    render_as_image=True,
+                )
+            ),
+        ),
+    )
+
+    dimension_generator = LookmlDimensionGenerator(cli_args)
+    result = dimension_generator.lookml_dimensions_from_model([column], True)
+    import logging
+
+    logging.warning(result)
+    assert isinstance(result[0], dict)
+    assert result[0].get("type") == "string"
+    assert result[0].get("html") == "<img src={{ value }}/>"
+
+
 def test_dimension_group_date(cli_args):
     """Test creation of date-based dimension groups"""
     dimension_generator = LookmlDimensionGenerator(cli_args)
