@@ -138,7 +138,7 @@ class LookmlDimensionGenerator:
         if self._applier.get_meta_attribute(
             column, "render_as_image", "meta.looker.dimension"
         ):
-            dimension["html"] = "<img src={{ value }}/>"
+            dimension["html"] = "<img src={{ value }}>"
 
         return dimension
 
