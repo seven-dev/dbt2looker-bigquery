@@ -81,6 +81,10 @@ class LookmlViewGenerator:
             base_view, model, ["label"], "meta.looker.view"
         )
 
+        # all_dimensions = dimension_generator()
+        # all_dimension_generators = dimension_generator
+        # all_measures = measure_generator()
+
         for key, column_list in grouped_columns.items():
             prepath = key[1]
             depth = key[0]
@@ -111,6 +115,15 @@ class LookmlViewGenerator:
                 dimension_generator,
                 measure_generator,
             )
+            # derived dimension_generator
+            # derived measure_generator
             views.append(view)
+
+        # if we want strong validation of derived measures and dimensions
+        # we need to add them to the view after rendering all of the views for a model.
+        # perhaps we can generate the views, store all the entitites and then add the derived measures and dimensions
+        # or we can generate all the first and second level entitites in a generic entity map first, and then pass it along to the view generator for rendering
+        # the third level entities
+        # We could utilize the dimension_generator and measure_generator to create the map first, and then use that when creating the derived 3rd level entities
 
         return views

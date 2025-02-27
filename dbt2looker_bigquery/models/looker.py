@@ -147,12 +147,24 @@ class DbtMetaLookerDimension(DbtMetaLookerViewElement):
 class DbtMetaLookerDerivedMeasure(DbtMetaLookerMeasure):
     """Looker metadata for a derived measure."""
 
+    # Having this functionality can be a real boon, as it allows you to reconfigure or alter a model, and quickly iterate on the changes in looker.
+    # It especially helps when creating complex objects with structs and arrays that you needs to be combined to create meaningful measures.
+    # The problem with implementing this feature in dbt, is that it is easy to write nonfunctioning code, making it frustrating to debug.
+    # so we need to implement robust validation in conjunction with the implementation of this feature.
+    # should have validation requirements:
+    # all ${} expressions need to be an existing object in the overarching model.
+    # in addition the sql should be somewhat parseable (;; enforcement, ${} inclusion required etc)
+    # this will have to occur at the end of model parsing, as we need to know all the objects in the model
+    # failures to validate the sql, should return a warning, or error depending on the validation severity
     sql: str
 
 
 class DbtMetaLookerDerivedDimension(DbtMetaLookerDimension):
     """Looker metadata for a derived dimension."""
 
+    # This functionality is similar to the derived measure, but there are fewer good use cases for it.
+    # but the validation, and implementation should be able to leverage the validation logic from the derived measure.
+    # So if derived measures gets implemented, this should be a relatively simple addition.
     sql: str
 
 
