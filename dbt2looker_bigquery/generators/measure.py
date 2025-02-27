@@ -99,6 +99,20 @@ class LookmlMeasureGenerator:
 
         return m
 
+    def _lookml_time_based_measure(
+        self,
+        column: DbtModelColumn,
+        measure: DbtMetaLookerMeasure,
+        is_main_view: bool,
+        view,
+    ) -> dict:
+        """Create a LookML measure for a date/datetime type column.
+        Date types are not well supported for measure generation in looker, but bigquery handles them well.
+        This function is a workaround to generate measures for date type columns.
+        """
+
+        # TODO: Implment this
+
     def lookml_measures_from_model(
         self, column_list: list[DbtModelColumn], is_main_view: bool, view: dict = None
     ) -> list:
@@ -116,5 +130,19 @@ class LookmlMeasureGenerator:
                     self._lookml_measure(column, measure, is_main_view, view)
                     for measure in column.meta.looker.measures
                 )
+
+            # if (
+            #     (    map_bigquery_to_looker(column.data_type) in LookerDateTimeTypes.values()
+            #         or
+            #         map_bigquery_to_looker(column.data_type) in LookerDateTypes.values()
+            #     )
+            #     and hasattr(column.meta, "looker")
+            #     and hasattr(column.meta.looker, "measures")
+            #     and column.meta.looker.measures
+            # ):
+            #     lookml_measures.extend(
+            #         self._lookml_time_based_measure(column, measure, is_main_view, view)
+            #         for measure in column.meta.looker.measures
+            #     )
 
         return lookml_measures

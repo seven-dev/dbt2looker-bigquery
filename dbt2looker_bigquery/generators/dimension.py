@@ -131,6 +131,7 @@ class LookmlDimensionGenerator:
                 "case_sensitive",
                 "allow_fill",
                 "order_by_field",
+                "required_access_grants",
             ],
             "meta.looker.dimension",
         )

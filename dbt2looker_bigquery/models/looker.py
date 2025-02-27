@@ -124,6 +124,7 @@ class DbtMetaLookerDimension(DbtMetaLookerViewElement):
     case_sensitive: Optional[bool] = Field(default=None)
     allow_fill: Optional[bool] = Field(default=None)
     render_as_image: Optional[bool] = Field(default=False)
+    required_access_grants: Optional[List[str]] = Field(default=None)
 
     @field_validator("timeframes", mode="before")
     def check_enums(cls, values):

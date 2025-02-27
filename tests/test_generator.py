@@ -127,7 +127,7 @@ def test_dimension(cli_args):
     logging.warning(result)
     assert isinstance(result[0], dict)
     assert result[0].get("type") == "string"
-    assert result[0].get("html") == "<img src={{ value }}/>"
+    assert result[0].get("html") == "<img src={{ value }}>"
 
 
 def test_dimension_group_date(cli_args):
@@ -192,6 +192,7 @@ def test_lookml_dimensions_with_metadata(cli_args):
                             suggestable=True,
                             case_sensitive=False,
                             allow_fill=True,
+                            required_access_grants=["access_grant"],
                             filters=[
                                 DbtMetaLookerMeasureFilter(
                                     filter_dimension="filter",
@@ -227,6 +228,7 @@ def test_lookml_dimensions_with_metadata(cli_args):
     assert dimension["suggestable"] == "yes"
     assert dimension["case_sensitive"] == "no"
     assert dimension["allow_fill"] == "yes"
+    assert dimension["required_access_grants"] == ["access_grant"]
     with pytest.raises(KeyError):  # dimensions can't have filters
         _ = dimension["filters"]
 
@@ -275,6 +277,50 @@ def test_lookml_measures_from_model(cli_args):
     assert measure["description"] == "Sum of all amounts"
     assert measure["value_format_name"] == LookerValueFormatName.USD.value
     assert measure["sql"] == "${TABLE}.amount"
+
+
+def test_lookml_measures_from_date(cli_args):
+    """Test measure generation from model"""
+    measure_generator = LookmlMeasureGenerator(cli_args)
+    model = DbtModel(
+        name="test_model",
+        path="models/test_model.sql",
+        relation_name="`project.dataset.table_name`",
+        columns={
+            "date": DbtModelColumn(
+                name="date",
+                data_type="DATE",
+                unique_id="test_model.date",
+                meta=DbtModelColumnMeta(
+                    looker=DbtMetaColumnLooker(
+                        measures=[
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.MIN, label="First Date"
+                            )
+                        ]
+                    ),
+                ),
+            ),
+        },
+        meta=DbtModelMeta(),
+        unique_id="test_model",
+        resource_type="model",
+        schema="test_schema",
+        description="Test model",
+        tags=[],
+    )
+
+    measures = measure_generator.lookml_measures_from_model(
+        model.columns.values(), True
+    )
+    assert len(measures) == 1
+    measure = measures[0]
+    import logging
+
+    logging.warning(measure)
+    assert measure["type"] == LookerMeasureType.MIN.value
+    assert measure["label"] == "First Date"
+    assert measure["sql"] == "${TABLE}.date"
 
 
 def test_lookml_measures_with_filters(cli_args):
