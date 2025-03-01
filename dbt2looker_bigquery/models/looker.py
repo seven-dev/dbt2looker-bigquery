@@ -241,6 +241,31 @@ class DbtMetaLookerExplore(BaseModel):
     group_label: Optional[str] = None
 
 
+class DbtMetaLookerRecipeMeasureGroup(BaseModel):
+    """A recipe for what to generate automatically in Looker"""
+
+    type: LookerMeasureType
+    custom_label_prefix: Optional[str] = None
+    hidden: Optional[bool] = None
+
+
+class DbtMetaLookerRecipe(BaseModel):
+    """A recipe for what to generate automatically in Looker
+    for a given data type in looker, we generate a set of measures
+    that are useful for that data
+    """
+
+    # TODO: this needs to write first, and be overwritten by actual measures
+    # TODO: include and exclude filters should be implemented as regex filters on the column names
+    # TODO: include and exclude fields should be implemented as exact matches on the column names
+    data_type: str
+    include_filter: Optional[str] = None
+    exclude_filter: Optional[str] = None
+    include_fields: Optional[List[str]] = None
+    exclude_fields: Optional[List[str]] = None
+    measures: Optional[List[DbtMetaLookerRecipeMeasureGroup]] = None
+
+
 class DbtMetaLooker(BaseModel):
     """Looker metadata for a model."""
 
