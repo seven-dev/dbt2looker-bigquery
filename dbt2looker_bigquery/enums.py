@@ -47,6 +47,13 @@ class LookerMeasureType(str, ExtendedEnum):
     SUM_DISTINCT = "sum_distinct"
 
 
+class LookerTimeMeasureType(str, ExtendedEnum):
+    MIN = "min"
+    MAX = "max"
+    COUNT = "count"
+    COUNT_DISTINCT = "count_distinct"
+
+
 class LookerValueFormatName(str, ExtendedEnum):
     DECIMAL_0 = "decimal_0"
     DECIMAL_1 = "decimal_1"

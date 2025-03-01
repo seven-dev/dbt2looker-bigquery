@@ -296,7 +296,23 @@ def test_lookml_measures_from_date(cli_args):
                         measures=[
                             DbtMetaLookerMeasure(
                                 type=LookerMeasureType.MIN, label="First Date"
-                            )
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.MAX, label="Last Date"
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.COUNT, label="Count"
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.COUNT_DISTINCT,
+                                label="Count Distinct",
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.AVERAGE, label="Average"
+                            ),  # should be ignored
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.SUM, label="Sum"
+                            ),  # should be ignored
                         ]
                     ),
                 ),
@@ -313,14 +329,23 @@ def test_lookml_measures_from_date(cli_args):
     measures = measure_generator.lookml_measures_from_model(
         model.columns.values(), True
     )
-    assert len(measures) == 1
+    assert len(measures) == 4
     measure = measures[0]
-    import logging
-
-    logging.warning(measure)
-    assert measure["type"] == LookerMeasureType.MIN.value
+    assert measure["type"] == "number"
     assert measure["label"] == "First Date"
-    assert measure["sql"] == "${TABLE}.date"
+    assert measure["sql"] == "MIN(${TABLE}.date)"
+    measure = measures[1]
+    assert measure["type"] == "number"
+    assert measure["label"] == "Last Date"
+    assert measure["sql"] == "MAX(${TABLE}.date)"
+    measure = measures[2]
+    assert measure["type"] == "number"
+    assert measure["label"] == "Count"
+    assert measure["sql"] == "COUNT(${TABLE}.date)"
+    measure = measures[3]
+    assert measure["type"] == "number"
+    assert measure["label"] == "Count Distinct"
+    assert measure["sql"] == "COUNT(DISTINCT ${TABLE}.date)"
 
 
 def test_lookml_measures_with_filters(cli_args):
