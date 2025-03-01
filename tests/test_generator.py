@@ -253,7 +253,16 @@ def test_lookml_measures_from_model(cli_args):
                                 label="Total Amount",
                                 description="Sum of all amounts",
                                 value_format_name=LookerValueFormatName.USD,
-                            )
+                                hidden=False,
+                                required_access_grants=["access_grant"],
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.COUNT_DISTINCT,
+                                value_format_name=LookerValueFormatName.USD,
+                                hidden=False,
+                                required_access_grants=["access_grant"],
+                                sql_distinct_key="amount",
+                            ),
                         ]
                     ),
                 ),
@@ -270,13 +279,22 @@ def test_lookml_measures_from_model(cli_args):
     measures = measure_generator.lookml_measures_from_model(
         model.columns.values(), True
     )
-    assert len(measures) == 1
+    assert len(measures) == 2
     measure = measures[0]
     assert measure["type"] == LookerMeasureType.SUM.value
     assert measure["label"] == "Total Amount"
     assert measure["description"] == "Sum of all amounts"
     assert measure["value_format_name"] == LookerValueFormatName.USD.value
     assert measure["sql"] == "${TABLE}.amount"
+    assert measure["hidden"] == "no"
+    assert measure["required_access_grants"] == ["access_grant"]
+    measure = measures[1]
+    assert measure["type"] == LookerMeasureType.COUNT_DISTINCT.value
+    assert measure["value_format_name"] == LookerValueFormatName.USD.value
+    assert measure["sql"] == "${TABLE}.amount"
+    assert measure["hidden"] == "no"
+    assert measure["required_access_grants"] == ["access_grant"]
+    assert measure["sql_distinct_key"] == "amount"
 
 
 def test_lookml_measures_from_date(cli_args):
@@ -296,7 +314,32 @@ def test_lookml_measures_from_date(cli_args):
                         measures=[
                             DbtMetaLookerMeasure(
                                 type=LookerMeasureType.MIN, label="First Date"
-                            )
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.MAX, label="Last Date"
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.COUNT,
+                                label="Count",
+                                hidden=False,
+                                required_access_grants=[
+                                    "access_grant",
+                                    "access_grant2",
+                                ],
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.COUNT_DISTINCT,
+                                label="Count Distinct",
+                                hidden=True,
+                                sql_distinct_key="date",
+                                required_access_grants=["access_grant"],
+                            ),
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.AVERAGE, label="Average"
+                            ),  # should be ignored
+                            DbtMetaLookerMeasure(
+                                type=LookerMeasureType.SUM, label="Sum"
+                            ),  # should be ignored
                         ]
                     ),
                 ),
@@ -313,14 +356,28 @@ def test_lookml_measures_from_date(cli_args):
     measures = measure_generator.lookml_measures_from_model(
         model.columns.values(), True
     )
-    assert len(measures) == 1
+    assert len(measures) == 4
     measure = measures[0]
-    import logging
-
-    logging.warning(measure)
-    assert measure["type"] == LookerMeasureType.MIN.value
+    assert measure["type"] == "number"
     assert measure["label"] == "First Date"
-    assert measure["sql"] == "${TABLE}.date"
+    assert measure["sql"] == "MIN(${TABLE}.date)"
+    measure = measures[1]
+    assert measure["type"] == "number"
+    assert measure["label"] == "Last Date"
+    assert measure["sql"] == "MAX(${TABLE}.date)"
+    measure = measures[2]
+    assert measure["type"] == "number"
+    assert measure["label"] == "Count"
+    assert measure["sql"] == "COUNT(${TABLE}.date)"
+    assert measure["hidden"] == "no"
+    assert measure["required_access_grants"] == ["access_grant", "access_grant2"]
+    measure = measures[3]
+    assert measure["type"] == "number"
+    assert measure["label"] == "Count Distinct"
+    assert measure["sql"] == "COUNT(DISTINCT ${TABLE}.date)"
+    assert measure["hidden"] == "yes"
+    assert measure["sql_distinct_key"] == "date"
+    assert measure["required_access_grants"] == ["access_grant"]
 
 
 def test_lookml_measures_with_filters(cli_args):

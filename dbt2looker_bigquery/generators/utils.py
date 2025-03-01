@@ -7,7 +7,17 @@ from dbt2looker_bigquery.models.dbt import DbtModelColumn
 
 
 def map_bigquery_to_looker(column_type: str | None) -> Optional[str]:
-    """Map BigQuery data type to Looker data type."""
+    """Map BigQuery data type to Looker data type
+    returns
+    - None if not found
+    - Looker data type as string
+        number
+        string
+        date
+        datetime
+        timestamp
+        yesno
+    """
     if column_type:
         column_type = column_type.split("<")[0]  # STRUCT< or ARRAY<
         column_type = column_type.split("(")[0]  # Numeric(1,31)

@@ -61,6 +61,7 @@ class DbtMetaLookerMeasure(DbtMetaLookerViewElement):
     precision: Optional[int] = None  # For average, sum
     sql_distinct_key: Optional[str] = None  # For count_distinct
     percentile: Optional[int] = None  # For percentile measures
+    required_access_grants: Optional[List[str]] = Field(default=None)
 
     @model_validator(mode="before")
     def validate_measure_attributes(cls, values):

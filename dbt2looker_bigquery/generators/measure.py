@@ -1,4 +1,9 @@
-from dbt2looker_bigquery.enums import LookerMeasureType, LookerScalarTypes
+from dbt2looker_bigquery.enums import (
+    LookerMeasureType,
+    LookerScalarTypes,
+    LookerDateTypes,
+    LookerDateTimeTypes,
+)
 from dbt2looker_bigquery.generators.utils import (
     get_sql_expression,
     map_bigquery_to_looker,
@@ -15,53 +20,47 @@ class LookmlMeasureGenerator:
         self._cli_args = args
         self._applier = MetaAttributeApplier(args)
 
-    def _apply_measure_attributes(
-        self, measure_dict: dict, measure: DbtMetaLookerMeasure
-    ) -> None:
-        """Apply measure attributes to the measure dictionary."""
-        direct_attributes = [
-            "approximate",
-            "approximate_threshold",
-            "can_filter",
-            "tags",
-            "alias",
-            "convert_tz",
-            "suggestable",
-            "precision",
-            "percentile",
-            "group_label",
-            "label",
-            "description",
-        ]
-
-        for attr in direct_attributes:
-            value = getattr(measure, attr, None)
-            if value is not None:
-                measure_dict[attr] = value
-
-        # Special handling for value_format_name which is an enum
-        if measure.value_format_name is not None:
-            measure_dict["value_format_name"] = measure.value_format_name.value
-
-        # Special handling for hidden attribute
-        if measure.hidden is not None:
-            measure_dict["hidden"] = "yes" if measure.hidden else "no"
-
     def _lookml_measure(
         self,
         column: DbtModelColumn,
         measure: DbtMetaLookerMeasure,
         is_main_view: bool,
         view,
+        measure_type: str = "scalar_based",
     ) -> dict:
         """Create a LookML measure from a DBT model column and measure."""
-        if measure.type.value not in [t.value for t in LookerMeasureType]:
+
+        sql = get_sql_expression(column, is_main_view, view)
+        type = measure.type.value
+
+        if map_bigquery_to_looker(column.data_type) in LookerScalarTypes.values():
+            if type not in [t.value for t in LookerMeasureType]:
+                return None
+
+        elif (
+            map_bigquery_to_looker(column.data_type) in LookerDateTypes.values()
+            or map_bigquery_to_looker(column.data_type) in LookerDateTimeTypes.values()
+        ):
+            # looker does not support date and datetime types as measures
+            # so we need to implement them directly in bigquery
+            type = "number"
+            if measure.type.value == LookerMeasureType.COUNT.value:
+                sql = f"COUNT({sql})"
+            elif measure.type.value == LookerMeasureType.COUNT_DISTINCT.value:
+                sql = f"COUNT(DISTINCT {sql})"
+            elif measure.type.value == LookerMeasureType.MIN.value:
+                sql = f"MIN({sql})"
+            elif measure.type.value == LookerMeasureType.MAX.value:
+                sql = f"MAX({sql})"
+            else:
+                return None
+        else:
             return None
 
         m = {
             "name": f"m_{measure.type.value}_{column.name}",
-            "type": measure.type.value,
-            "sql": get_sql_expression(column, is_main_view, view),
+            "type": type,
+            "sql": sql,
             "description": measure.description
             or f"{measure.type.value} of {column.name}",
         }
@@ -83,12 +82,11 @@ class LookmlMeasureGenerator:
                 "value_format_name",
                 "label",
                 "description",
+                "hidden",
+                "sql_distinct_key",
+                "required_access_grants",
             ],
         )
-
-        # Handle SQL distinct key
-        if measure.sql_distinct_key is not None:
-            m["sql_distinct_key"] = measure.sql_distinct_key
 
         # Handle filters
         if measure.filters:
@@ -99,20 +97,6 @@ class LookmlMeasureGenerator:
 
         return m
 
-    def _lookml_time_based_measure(
-        self,
-        column: DbtModelColumn,
-        measure: DbtMetaLookerMeasure,
-        is_main_view: bool,
-        view,
-    ) -> dict:
-        """Create a LookML measure for a date/datetime type column.
-        Date types are not well supported for measure generation in looker, but bigquery handles them well.
-        This function is a workaround to generate measures for date type columns.
-        """
-
-        # TODO: Implment this
-
     def lookml_measures_from_model(
         self, column_list: list[DbtModelColumn], is_main_view: bool, view: dict = None
     ) -> list:
@@ -121,28 +105,17 @@ class LookmlMeasureGenerator:
 
         for column in column_list:
             if (
-                map_bigquery_to_looker(column.data_type) in LookerScalarTypes.values()
-                and hasattr(column.meta, "looker")
+                hasattr(column.meta, "looker")
                 and hasattr(column.meta.looker, "measures")
                 and column.meta.looker.measures
             ):
                 lookml_measures.extend(
-                    self._lookml_measure(column, measure, is_main_view, view)
-                    for measure in column.meta.looker.measures
+                    measure
+                    for measure in (
+                        self._lookml_measure(column, measure, is_main_view, view)
+                        for measure in column.meta.looker.measures
+                    )
+                    if measure is not None
                 )
-
-            # if (
-            #     (    map_bigquery_to_looker(column.data_type) in LookerDateTimeTypes.values()
-            #         or
-            #         map_bigquery_to_looker(column.data_type) in LookerDateTypes.values()
-            #     )
-            #     and hasattr(column.meta, "looker")
-            #     and hasattr(column.meta.looker, "measures")
-            #     and column.meta.looker.measures
-            # ):
-            #     lookml_measures.extend(
-            #         self._lookml_time_based_measure(column, measure, is_main_view, view)
-            #         for measure in column.meta.looker.measures
-            #     )
 
         return lookml_measures
