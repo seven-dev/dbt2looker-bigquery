@@ -20,38 +20,6 @@ class LookmlMeasureGenerator:
         self._cli_args = args
         self._applier = MetaAttributeApplier(args)
 
-    def _apply_measure_attributes(
-        self, measure_dict: dict, measure: DbtMetaLookerMeasure
-    ) -> None:
-        """Apply measure attributes to the measure dictionary."""
-        direct_attributes = [
-            "approximate",
-            "approximate_threshold",
-            "can_filter",
-            "tags",
-            "alias",
-            "convert_tz",
-            "suggestable",
-            "precision",
-            "percentile",
-            "group_label",
-            "label",
-            "description",
-        ]
-
-        for attr in direct_attributes:
-            value = getattr(measure, attr, None)
-            if value is not None:
-                measure_dict[attr] = value
-
-        # Special handling for value_format_name which is an enum
-        if measure.value_format_name is not None:
-            measure_dict["value_format_name"] = measure.value_format_name.value
-
-        # Special handling for hidden attribute
-        if measure.hidden is not None:
-            measure_dict["hidden"] = "yes" if measure.hidden else "no"
-
     def _lookml_measure(
         self,
         column: DbtModelColumn,
@@ -114,12 +82,11 @@ class LookmlMeasureGenerator:
                 "value_format_name",
                 "label",
                 "description",
+                "hidden",
+                "sql_distinct_key",
+                "required_access_grants",
             ],
         )
-
-        # Handle SQL distinct key
-        if measure.sql_distinct_key is not None:
-            m["sql_distinct_key"] = measure.sql_distinct_key
 
         # Handle filters
         if measure.filters:
