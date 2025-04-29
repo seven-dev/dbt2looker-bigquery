@@ -222,18 +222,19 @@ class DbtMetaColumnLooker(DbtMetaLookerViewElement):
                 potential_measure = {"type": potential_measure}
             try:
                 if type(potential_measure) is DbtMetaLookerMeasure:
-                    validated_measures.append(potential_measure)
-                else:
-                    validated_measure = DbtMetaLookerMeasure(**potential_measure)
-                    validated_measures.append(validated_measure)
+                    potential_measure = potential_measure.model_dump()
+                validated_measure = DbtMetaLookerMeasure(**potential_measure)
+
+                validated_measures.append(validated_measure)
             except (ValidationError, TypeError) as e:
                 warnings.warn(
                     f"Invalid measure: {potential_measure}. Error: {str(e)}",
                     ParsingWarning,
                 )
-        if validated_measures:
+        if validated_measures and measures:
             values["measures"] = validated_measures
-
+        elif measures:
+            values["measures"] = []
         return values
 
 
