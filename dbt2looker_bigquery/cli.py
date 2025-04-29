@@ -13,7 +13,6 @@ import logging
 
 from rich.logging import RichHandler
 
-from dbt2looker_bigquery.exceptions import CliError
 from dbt2looker_bigquery.generators import LookmlGenerator
 from dbt2looker_bigquery.parsers import DbtParser
 from dbt2looker_bigquery.utils import FileHandler
@@ -239,14 +238,14 @@ class Cli:
             models = self.parse(args)
             self.generate(args, models)
 
-            for msg, cat, _, _ in captured_warnings:
-                key = f"{cat.__name__}: {msg}"
-                if key not in user_feedback:
-                    user_feedback.append(key)
-
-        except CliError as e:
+        except Exception as e:
             # Logs should already be printed by the handler
             logging.error(f"Error occurred during generation. Stopped execution. {e}")
+
+        for msg, cat, _, _ in captured_warnings:
+            key = f"{cat.__name__}: {msg}"
+            if key not in user_feedback:
+                user_feedback.append(key)
 
         if user_feedback:
             for m in user_feedback:
