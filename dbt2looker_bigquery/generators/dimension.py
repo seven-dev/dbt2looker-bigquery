@@ -128,6 +128,8 @@ class LookmlDimensionGenerator:
                 "hidden",
                 "group_item_label",
                 "suggestable",
+                "suggestions",
+                "full_suggestions",
                 "case_sensitive",
                 "allow_fill",
                 "order_by_field",

@@ -126,6 +126,8 @@ class DbtMetaLookerDimension(DbtMetaLookerViewElement):
     allow_fill: Optional[bool] = Field(default=None)
     render_as_image: Optional[bool] = Field(default=False)
     required_access_grants: Optional[List[str]] = Field(default=None)
+    suggestions: Optional[List[str]] = Field(default=None)
+    full_suggestions: Optional[bool] = Field(default=None)
 
     @field_validator("timeframes", mode="before")
     def check_enums(cls, values):
