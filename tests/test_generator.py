@@ -278,7 +278,7 @@ def test_lookml_measures_from_model(cli_args):
     )
 
     measures = measure_generator.lookml_measures_from_model(
-        model.columns.values(), True
+        model, model.columns.values(), True
     )
     assert len(measures) == 2
     measure = measures[0]
@@ -355,7 +355,7 @@ def test_lookml_measures_from_date(cli_args):
     )
 
     measures = measure_generator.lookml_measures_from_model(
-        model.columns.values(), True
+        model, model.columns.values(), True
     )
     assert len(measures) == 4
     measure = measures[0]
@@ -419,7 +419,7 @@ def test_lookml_measures_with_filters(cli_args):
     )
 
     measures = measure_generator.lookml_measures_from_model(
-        model.columns.values(), True
+        model, model.columns.values(), True
     )
     assert len(measures) == 1
     measure = measures[0]
@@ -503,7 +503,7 @@ def test_legacy_lookml_measure(cli_args):
     )
 
     measures = measure_generator.lookml_measures_from_model(
-        model.columns.values(), True
+        model, model.columns.values(), True
     )
     assert len(measures) == 1
     measure = measures[0]

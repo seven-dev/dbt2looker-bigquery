@@ -98,7 +98,7 @@ class LookmlMeasureGenerator:
         return m
 
     def lookml_measures_from_model(
-        self, column_list: list[DbtModelColumn], is_main_view: bool, view: dict = None
+        self, model: DbtModel, column_list: list[DbtModelColumn], is_main_view: bool, view: dict = None
     ) -> list:
         """Generate measures from model."""
         lookml_measures = []
@@ -117,5 +117,21 @@ class LookmlMeasureGenerator:
                     )
                     if measure is not None
                 )
+
+        if (
+            hasattr(model.meta, "looker")
+            and hasattr(model.meta.looker, "measures")
+            and model.meta.looker.measures
+        ):
+            lookml_measures.extend(
+                {
+                    'name': measure.name,
+                    'type': measure.type.value,
+                    'sql': measure.sql,
+                    'description': measure.description,
+                    'label': measure.label,
+                }
+                for measure in model.meta.looker.measures
+            )
 
         return lookml_measures

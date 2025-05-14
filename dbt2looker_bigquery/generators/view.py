@@ -53,7 +53,7 @@ class LookmlViewGenerator:
             view["dimension_groups"] = dimension_groups
 
         if measures := measure_generator.lookml_measures_from_model(
-            column_list, is_main_view, view
+            model, column_list, is_main_view, view
         ):
             view["measures"] = measures
 
