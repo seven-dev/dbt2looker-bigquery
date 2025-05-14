@@ -8,7 +8,7 @@ from dbt2looker_bigquery.generators.utils import (
     get_sql_expression,
     map_bigquery_to_looker,
 )
-from dbt2looker_bigquery.models.dbt import DbtModelColumn
+from dbt2looker_bigquery.models.dbt import DbtModelColumn, DbtModel
 from dbt2looker_bigquery.models.looker import DbtMetaLookerMeasure
 from dbt2looker_bigquery.generators.utils import MetaAttributeApplier
 
