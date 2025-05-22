@@ -91,6 +91,7 @@ class CatalogParser:
         if self.node:
             # add types to manifested columns
             for column_name, column in model.columns.items():
+                print(model.name, column_name)
                 processed_column = self._add_types(column)
                 if processed_column.data_type and processed_column.inner_types:
                     processed_columns[column_name] = processed_column
