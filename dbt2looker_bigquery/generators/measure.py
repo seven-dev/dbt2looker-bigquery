@@ -58,7 +58,7 @@ class LookmlMeasureGenerator:
             return None
 
         m = {
-            "name": f"m_{measure.type.value}_{column.name}",
+            "name": measure.name or f"m_{measure.type.value}_{column.name}",
             "type": type,
             "sql": sql,
             "description": measure.description
