@@ -96,6 +96,39 @@ class LookmlMeasureGenerator:
             ]
 
         return m
+    
+    def _lookml_multi_measure(self, measure: DbtMetaLookerMeasure):
+        measure_data = {
+            'name': measure.name,
+            'type': measure.type.value,
+            'sql': measure.sql,
+            'description': measure.description,
+            'label': measure.label,
+        }
+
+        self._applier.apply_meta_attributes(
+            measure_data,
+            measure,
+            [
+                "approximate",
+                "approximate_threshold",
+                "can_filter",
+                "tags",
+                "alias",
+                "convert_tz",
+                "suggestable",
+                "precision",
+                "percentile",
+                "group_label",
+                "value_format_name",
+                "label",
+                "description",
+                "hidden",
+                "sql_distinct_key",
+                "required_access_grants",
+            ],
+        )
+        return measure_data
 
     def lookml_measures_from_model(
         self, model: DbtModel, column_list: list[DbtModelColumn], is_main_view: bool, view: dict = None
@@ -123,15 +156,9 @@ class LookmlMeasureGenerator:
             and hasattr(model.meta.looker, "measures")
             and model.meta.looker.measures
         ):
-            lookml_measures.extend(
-                {
-                    'name': measure.name,
-                    'type': measure.type.value,
-                    'sql': measure.sql,
-                    'description': measure.description,
-                    'label': measure.label,
-                }
-                for measure in model.meta.looker.measures
-            )
+            measures = []
+            for measure in model.meta.looker.measures:
+                measures.append(self._lookml_multi_measure(measure))
+            lookml_measures.extend(measures)
 
         return lookml_measures
