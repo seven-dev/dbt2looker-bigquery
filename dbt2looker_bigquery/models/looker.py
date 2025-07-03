@@ -128,6 +128,7 @@ class DbtMetaLookerDimension(DbtMetaLookerViewElement):
     required_access_grants: Optional[List[str]] = Field(default=None)
     suggestions: Optional[List[str]] = Field(default=None)
     full_suggestions: Optional[bool] = Field(default=None)
+    map_layer_name: Optional[str] = Field(default=None)
 
     @field_validator("timeframes", mode="before")
     def check_enums(cls, values):

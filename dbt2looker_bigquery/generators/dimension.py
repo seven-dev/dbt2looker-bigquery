@@ -134,6 +134,7 @@ class LookmlDimensionGenerator:
                 "allow_fill",
                 "order_by_field",
                 "required_access_grants",
+                "map_layer_name",
             ],
             "meta.looker.dimension",
         )
